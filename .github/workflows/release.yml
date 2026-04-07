@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          registry-url: https://registry.npmjs.org/
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -72,6 +73,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          registry-url: https://registry.npmjs.org/
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -92,8 +94,10 @@ jobs:
       - name: Run tests
         run: npm run test
 
-      - name: Build desktop app
-        run: npm run build:desktop
+      - name: Build Windows installers
+        run: |
+          npm run build:desktop-api:bundle
+          npx tauri build --bundles nsis,msi
 
       - name: Collect Windows assets
         id: windows_assets
