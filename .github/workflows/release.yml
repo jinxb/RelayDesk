@@ -87,6 +87,12 @@ jobs:
           $rolldownVersion = node -e "const lock=JSON.parse(require('fs').readFileSync('package-lock.json', 'utf8')); console.log(lock.packages['node_modules/rolldown'].version)"
           npm install --no-save "@rolldown/binding-win32-x64-msvc@$rolldownVersion"
 
+      - name: Install Tauri Windows binding
+        shell: pwsh
+        run: |
+          $tauriCliVersion = node -e "const lock=JSON.parse(require('fs').readFileSync('package-lock.json', 'utf8')); console.log(lock.packages['node_modules/@tauri-apps/cli'].version)"
+          npm install --no-save "@tauri-apps/cli-win32-x64-msvc@$tauriCliVersion"
+
       - name: Verify tag matches app version
         shell: pwsh
         run: |
