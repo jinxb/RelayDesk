@@ -1,0 +1,12 @@
+{
+  "name": "@relaydesk/desktop-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx src/bootstrap.ts",
+    "build": "node scripts/build.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/desktop-api.mjs"
+  }
+}

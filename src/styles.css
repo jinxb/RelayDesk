@@ -1,0 +1,295 @@
+:root {
+  --bg-canvas: #F7F4EF;
+  --bg-nav: #EFE9E1;
+  --bg-surface: #FFFFFF;
+  --bg-soft: #F5F1EB;
+  --line-subtle: #E6DED3;
+  --text-strong: #231F1A;
+  --text-muted: #726C63;
+  --accent: #14A38B;
+  --accent-soft: #DDF6F0;
+  --success: #22B07D;
+  --warning: #E4A24A;
+  --danger: #E06666;
+  --info: #4E8DF5;
+  --relaydesk-shadow: 0 4px 12px rgba(0, 0, 0, 0.04), 0 12px 34px rgba(74, 63, 52, 0.04);
+  --relaydesk-rail-width: 72px;
+  --relaydesk-main-max-width: 1120px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  color: var(--text-strong);
+  font-family: "Geist", "PingFang SC", sans-serif;
+  background: var(--bg-canvas);
+  overflow: hidden;
+}
+
+.relaydesk-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-canvas);
+}
+
+.relaydesk-appFrame {
+  display: grid;
+  grid-template-columns: var(--relaydesk-rail-width) minmax(0, 1fr);
+  height: 100dvh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: transparent;
+  overflow: hidden;
+}
+
+.relaydesk-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 4px 12px;
+  background:
+    linear-gradient(180deg, rgba(242, 236, 226, 0.94), rgba(238, 231, 220, 0.94));
+  border-right: 1px solid rgba(184, 171, 153, 0.22);
+  overflow-y: auto;
+}
+
+.relaydesk-railInner {
+  gap: 20px;
+  padding: 0;
+}
+
+.relaydesk-railInner--full {
+  height: 100%;
+}
+
+.relaydesk-railSection {
+  gap: 20px;
+}
+
+.relaydesk-navGroup {
+  gap: 14px;
+}
+
+.relaydesk-railUtility {
+  margin-top: 12px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(184, 171, 153, 0.24);
+}
+
+.relaydesk-railCard,
+.relaydesk-status,
+.relaydesk-surface,
+.relaydesk-metric {
+  background: var(--bg-surface);
+  box-shadow: var(--relaydesk-shadow);
+  border-radius: 18px;
+  border: 1px solid var(--line-subtle);
+  padding: 20px;
+}
+
+.relaydesk-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    linear-gradient(180deg, rgba(248, 245, 239, 0.96), rgba(245, 241, 235, 0.98));
+  overflow: hidden;
+  padding-top: 6px;
+}
+
+.relaydesk-mainDeck {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: min(100%, var(--relaydesk-main-max-width));
+  margin: 0 auto;
+  padding: 8px 12px 12px;
+  overflow-x: hidden;
+}
+
+.relaydesk-previewNotice {
+  margin-bottom: 4px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(184, 171, 153, 0.22);
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.relaydesk-toolbarIdentity {
+  min-width: 0;
+}
+
+.relaydesk-spin {
+  animation: relaydesk-spin 0.9s linear infinite;
+}
+
+.relaydesk-contentView {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  width: 100%;
+}
+
+.relaydesk-contentView--fixed {
+  overflow: hidden;
+}
+
+.relaydesk-contentView--scroll {
+  padding-right: 4px;
+}
+
+.relaydesk-contentView--overview {
+  padding-right: 0;
+}
+
+.relaydesk-brandMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 16px;
+  box-shadow: 0 8px 18px rgba(20, 163, 139, 0.18);
+}
+
+.relaydesk-brandAvatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.relaydesk-railBrand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 6px 0 16px;
+  border-bottom: 1px solid rgba(184, 171, 153, 0.24);
+}
+
+.relaydesk-railBrand--minimal {
+  min-height: 28px;
+  padding: 0 0 12px;
+}
+
+.relaydesk-railBrandSpacer {
+  width: 100%;
+  height: 1px;
+}
+
+.relaydesk-railBrandCopy {
+  min-width: 0;
+  display: none;
+}
+
+.relaydesk-brandDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--amber-9);
+}
+
+.relaydesk-brandDot[data-ready="true"] {
+  background: var(--teal-9);
+}
+
+.relaydesk-brandDot--floating {
+  position: absolute;
+  right: 10px;
+  bottom: 14px;
+}
+
+.relaydesk-chipRow,
+.relaydesk-badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.relaydesk-console {
+  margin: 0;
+  min-height: 160px;
+  max-height: 380px;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line-subtle);
+  background: var(--text-strong);
+  color: var(--bg-surface);
+  font-family:
+    "JetBrains Mono",
+    monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.relaydesk-pathGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.relaydesk-toolIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--sand-3);
+  border: 1px solid var(--gray-a4);
+}
+
+.rt-Card.relaydesk-status,
+.rt-Card.relaydesk-surface,
+.rt-Card.relaydesk-railCard,
+.rt-Card.relaydesk-metric {
+  border-radius: 12px;
+}
+
+code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes relaydesk-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 899px) {
+  :root {
+    --relaydesk-rail-width: 68px;
+  }
+}

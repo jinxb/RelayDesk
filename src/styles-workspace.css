@@ -1,0 +1,558 @@
+.relaydesk-fieldBlock {
+  display: grid;
+  gap: 8px;
+  max-width: 480px;
+}
+
+.relaydesk-wizardShell {
+  display: none;
+}
+
+.relaydesk-wizardRail,
+.relaydesk-wizardSummary {
+  padding: 32px 20px;
+}
+
+.relaydesk-wizardRail {
+  background: var(--bg-nav);
+  border-right: 1px solid rgba(184, 171, 153, 0.16);
+}
+
+.relaydesk-wizardMain {
+  padding: 32px 40px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.relaydesk-wizardSummary {
+  background: var(--bg-soft);
+  border-left: 1px solid var(--line-subtle);
+}
+
+.relaydesk-wizardStatus {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line-subtle);
+  background: rgba(245, 241, 235, 0.9);
+}
+
+.relaydesk-wizardStep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.relaydesk-wizardStepIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.relaydesk-wizardStep[data-state="active"] .relaydesk-wizardStepIndex {
+  background: var(--accent);
+  color: white;
+  border-color: transparent;
+}
+
+.relaydesk-wizardStep[data-state="done"] .relaydesk-wizardStepIndex {
+  background: rgba(20, 163, 139, 0.12);
+  color: var(--accent);
+  border-color: rgba(20, 163, 139, 0.24);
+}
+
+.relaydesk-wizardStepCopy {
+  display: grid;
+  gap: 3px;
+}
+
+.relaydesk-wizardStepCopy strong {
+  font-size: 13px;
+}
+
+.relaydesk-wizardStepCopy span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.relaydesk-reviewList,
+.relaydesk-reviewIssues {
+  display: grid;
+  gap: 8px;
+}
+
+.relaydesk-reviewRow,
+.relaydesk-reviewIssue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(245, 241, 235, 0.9);
+}
+
+.relaydesk-aiHeroStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* ── Channel Card (grid item) ── */
+
+.relaydesk-channelCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.relaydesk-channelCard .rt-Button {
+  align-self: flex-start;
+}
+
+/* ── Channel Config Dialog ── */
+
+.relaydesk-channelDialog .relaydesk-channelFieldGrid {
+  max-width: 100%;
+}
+
+.relaydesk-channelDialog .relaydesk-fieldBlock {
+  max-width: 100%;
+}
+
+.relaydesk-radioCard {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(97, 87, 76, 0.08);
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--sand-11);
+  cursor: pointer;
+  transition: all 150ms ease;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.relaydesk-radioCard:hover {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--sand-12);
+}
+
+.relaydesk-radioCard[data-active="true"] {
+  background: rgba(225, 246, 242, 0.86);
+  border-color: rgba(74, 147, 140, 0.34);
+  color: var(--teal-11);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  font-weight: 500;
+}
+
+.relaydesk-disclosure {
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-a4);
+  background: var(--gray-a2);
+}
+
+.relaydesk-disclosure summary {
+  cursor: pointer;
+  color: var(--gray-11);
+  font-size: 13px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.relaydesk-disclosure[open] summary {
+  margin-bottom: 16px;
+  color: var(--gray-12);
+}
+
+.relaydesk-settingsDisclosure {
+  margin-top: -4px;
+}
+
+.relaydesk-settingsLab {
+  background:
+    linear-gradient(180deg, rgba(244, 240, 234, 0.96), rgba(239, 234, 226, 0.96)),
+    rgba(245, 241, 235, 0.92);
+}
+
+.relaydesk-advancedIntro {
+  padding-top: 4px;
+}
+
+.relaydesk-settingsHero,
+.relaydesk-settingsStorage,
+.relaydesk-toolCard,
+.relaydesk-channelPanel,
+.relaydesk-channelListPanel,
+.relaydesk-diagnosticPanel,
+.relaydesk-diagnosticActionPanel {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(230, 222, 211, 0.78);
+}
+
+.relaydesk-settingsStack,
+.relaydesk-toolSettings,
+.relaydesk-channelWorkbench {
+  align-content: start;
+}
+
+.relaydesk-settingsStack {
+  gap: 10px !important;
+}
+
+.relaydesk-defaultAgentGroup {
+  padding: 5px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(97, 87, 76, 0.08);
+}
+
+/* ── Tool Summary Card ── */
+
+.relaydesk-toolSummaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 132px;
+}
+
+.relaydesk-toolSummaryCard[data-default="true"] {
+  border-color: rgba(20, 163, 139, 0.18);
+  background: linear-gradient(180deg, rgba(243, 252, 248, 0.98), rgba(255, 255, 255, 0.95));
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 4px 12px rgba(0, 0, 0, 0.03),
+    0 16px 48px rgba(20, 163, 139, 0.05);
+}
+
+.relaydesk-toolSummaryCard .rt-Button {
+  flex-shrink: 0;
+}
+
+.relaydesk-toolSummaryBody {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  align-content: start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(245, 241, 235, 0.58);
+  border: 1px solid rgba(0, 0, 0, 0.035);
+}
+
+.relaydesk-toolSummaryCard[data-default="true"] .relaydesk-toolSummaryBody {
+  background: rgba(221, 246, 240, 0.5);
+  border-color: rgba(20, 163, 139, 0.14);
+}
+
+.relaydesk-toolSummaryFooter {
+  margin-top: auto;
+  padding-top: 2px;
+}
+
+.relaydesk-toolSummaryMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.relaydesk-toolLaneHint {
+  line-height: 1.35;
+}
+
+.relaydesk-routeLaneSummary {
+  max-width: 90%;
+  line-height: 1.45;
+}
+
+.relaydesk-sectionLabel {
+  letter-spacing: 0.01em;
+}
+
+.relaydesk-settingsStorage {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.relaydesk-settingsStorageIntro {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(245, 241, 235, 0.52);
+  border: 1px solid rgba(0, 0, 0, 0.035);
+}
+
+.relaydesk-settingsStorageHint {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.relaydesk-channelDisclosure {
+  background: rgba(245, 241, 235, 0.9);
+}
+
+.relaydesk-channelSection {
+  display: grid;
+  gap: 12px;
+}
+
+.relaydesk-compactStat {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.relaydesk-runtimeStack {
+  gap: 0 !important;
+}
+
+.relaydesk-runtimePanel {
+  display: grid;
+  gap: 10px;
+  padding: 16px 4px;
+  border-top: 1px solid rgba(230, 222, 211, 0.72);
+}
+
+.relaydesk-runtimePanel:first-child {
+  padding-top: 8px;
+  border-top: none;
+}
+
+.relaydesk-runtimePanelHeader {
+  gap: 10px !important;
+}
+
+.relaydesk-runtimePanelActions {
+  padding-top: 2px;
+}
+
+.relaydesk-runtimePathText {
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.relaydesk-diagnosticActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.relaydesk-diagnosticConsoleHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.relaydesk-capabilityMatrix {
+  display: grid;
+  gap: 8px;
+}
+
+.relaydesk-capabilityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(245, 241, 235, 0.92);
+}
+
+.relaydesk-diagnosticList,
+.relaydesk-diagnosticHealthList {
+  display: grid;
+  gap: 8px;
+}
+
+.relaydesk-diagnosticList--summary {
+  max-height: min(172px, 32dvh);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.relaydesk-diagnosticHealthList--scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.relaydesk-diagnosticListItem,
+.relaydesk-diagnosticHealthRow {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--sand-2);
+}
+
+.relaydesk-diagnosticListItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relaydesk-diagnosticListMeta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.relaydesk-diagnosticHealthRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relaydesk-diagnosticHealthMeta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.relaydesk-diagnosticMetricGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.relaydesk-dataTable {
+  display: grid;
+  gap: 8px;
+}
+
+.relaydesk-dataTableHeader,
+.relaydesk-dataTableRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.9fr) minmax(260px, 1.5fr) 80px;
+  gap: 12px;
+  align-items: center;
+}
+
+.relaydesk-dataTableHeader {
+  padding: 0 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.relaydesk-dataTableRow {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(245, 241, 235, 0.92);
+  font-size: 13px;
+}
+
+.relaydesk-dataTableRow span,
+.relaydesk-dataTableHeader span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relaydesk-inlineDisclosure {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-subtle);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.relaydesk-inlineDisclosure summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.relaydesk-preferencesDialog .relaydesk-inlineDisclosure {
+  margin-top: 8px;
+}
+
+.relaydesk-activeChatList {
+  display: grid;
+  gap: 8px;
+}
+
+.relaydesk-activeChatRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(245, 241, 235, 0.92);
+}
+
+.relaydesk-activeChatMeta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.relaydesk-console--tall {
+  min-height: 260px;
+  max-height: 460px;
+}
+
+@media (max-height: 820px) {
+  .relaydesk-diagnosticListItem,
+  .relaydesk-diagnosticHealthRow {
+    padding: 9px 11px;
+  }
+
+  .relaydesk-toolSummaryCard {
+    min-height: 132px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .relaydesk-aiHero {
+    grid-template-columns: 1fr;
+  }
+
+  .relaydesk-aiHeroStats {
+    grid-template-columns: 1fr;
+  }
+
+  .relaydesk-dataTableHeader,
+  .relaydesk-dataTableRow {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (max-width: 860px) {
+  .relaydesk-toolLaneHint {
+    width: 100%;
+  }
+}
+
+@media (max-width: 1180px) {
+  .relaydesk-wizardDialog {
+    width: min(100vw - 40px, 720px);
+  }
+}

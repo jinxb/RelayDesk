@@ -1,0 +1,13 @@
+.ace-tool/
+node_modules/
+dist/
+.vite/
+src-tauri/target/
+src-tauri/desktop-api/
+src-tauri/runtime/
+src-tauri/relaydesk-runtime/
+src-tauri/gen/
+*.dmg
+*.app/
+.codex-tasks/
+.tmp-relaydesk-overview.png

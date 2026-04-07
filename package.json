@@ -1,0 +1,62 @@
+{
+  "name": "@relaydesk/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "description": "Desktop command center for routing trusted messaging channels to local coding agents.",
+  "scripts": {
+    "dev:web": "vite --host 127.0.0.1 --port 1421",
+    "build:web": "vite build",
+    "build:runtime:bundle": "node scripts/prepare-runtime.mjs",
+    "build:worker:bundle": "npm --prefix packages/runtime run build && node scripts/prepare-worker.mjs",
+    "build:desktop-api:bundle": "npm --prefix packages/desktop-api run build && npm run build:worker:bundle && npm run build:runtime:bundle && node scripts/prepare-sidecar.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 1421",
+    "test": "node --import ./scripts/node-styletext-compat.mjs ./node_modules/vitest/vitest.mjs run --config vitest.config.ts",
+    "dev:desktop": "tauri dev",
+    "build:desktop": "npm run build:desktop-api:bundle && tauri build --bundles app",
+    "build:desktop:dmg": "npm run build:desktop && node scripts/release/build-macos-dmg.mjs",
+    "build:desktop:updater": "npm run build:desktop-api:bundle && node scripts/release/build-github-updater.mjs",
+    "release:github:manifest": "node scripts/release/generate-github-manifest.mjs",
+    "release:doctor:macos": "bash scripts/release/doctor-macos.sh"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.85",
+    "@larksuiteoapi/node-sdk": "^1.60.0",
+    "@radix-ui/themes": "^3.2.1",
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.0",
+    "dingtalk-stream": "^2.1.6-beta.1",
+    "lucide-react": "^1.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "telegraf": "^4.16.3",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@rolldown/binding-darwin-arm64": "^1.0.0-rc.11",
+    "@tauri-apps/cli": "^2.8.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "4.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.2",
+    "vite": "5.4.21",
+    "vitest": "4.1.0"
+  },
+  "keywords": [
+    "desktop",
+    "tauri",
+    "automation",
+    "agent",
+    "messaging",
+    "workspace"
+  ],
+  "product": {
+    "name": "RelayDesk",
+    "channel": "desktop"
+  }
+}

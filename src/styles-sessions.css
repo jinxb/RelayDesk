@@ -1,0 +1,306 @@
+.relaydesk-sessionPageLayout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.32fr) minmax(0, 0.68fr);
+  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.relaydesk-sessionPagePanel {
+  min-height: 0;
+}
+
+.relaydesk-sessionPagePanel--list {
+  padding: 12px;
+}
+
+.relaydesk-sessionPagePanel--detail {
+  gap: 12px;
+}
+
+.relaydesk-sessionPagePanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.relaydesk-sessionPageCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.relaydesk-sessionPageList {
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.relaydesk-sessionListItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  text-align: left;
+}
+
+.relaydesk-sessionListItem[data-active="true"] {
+  background: rgba(226, 244, 240, 0.82);
+  border-color: rgba(20, 163, 139, 0.18);
+}
+
+.relaydesk-sessionListItemMain {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.relaydesk-sessionListItemTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.relaydesk-sessionListItemMeta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.relaydesk-sessionListBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(34, 176, 125, 0.12);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.relaydesk-sessionListChevron {
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.relaydesk-sessionDetailHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.relaydesk-sessionDetailIdentity {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.relaydesk-sessionDetailTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.relaydesk-sessionDetailMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.relaydesk-sessionDetailActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.relaydesk-sessionDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.relaydesk-sessionDetailStat {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(245, 241, 235, 0.7);
+}
+
+.relaydesk-sessionDetailStat--wide {
+  grid-column: 1 / -1;
+}
+
+.relaydesk-sessionDetailLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.relaydesk-sessionDetailValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.relaydesk-sessionDetailValue--mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.relaydesk-sessionDetailValueRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.relaydesk-sessionInlineAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.relaydesk-sessionTurnsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relaydesk-sessionTurnsTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.relaydesk-sessionTurnsScope {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.relaydesk-sessionTurnsList {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.relaydesk-sessionTurn {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.relaydesk-sessionTurnTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.relaydesk-sessionTurnRole {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.relaydesk-sessionTurnRole[data-role="assistant"] {
+  background: rgba(20, 163, 139, 0.1);
+  color: var(--accent);
+}
+
+.relaydesk-sessionTurnTime {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.relaydesk-sessionTurnContent {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.relaydesk-sessionTurnsEmpty {
+  min-height: 220px;
+}
+
+@media (max-width: 980px) {
+  .relaydesk-sessionPageLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .relaydesk-sessionDetailHero {
+    flex-direction: column;
+  }
+
+  .relaydesk-sessionDetailActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .relaydesk-sessionDetailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .relaydesk-sessionDetailStat--wide {
+    grid-column: auto;
+  }
+}

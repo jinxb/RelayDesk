@@ -1,0 +1,445 @@
+/**
+ * WeWork Event Handler - Handle WeWork message events
+ */
+
+import {
+  WEWORK_THROTTLE_MS,
+  buildScopedSessionOwnerId,
+  createLogger,
+  resolvePlatformAiCommand,
+  setActiveRouteAnchor,
+  type Config,
+  type SessionManager,
+} from '../../../state/src/index.js';
+import {
+  AccessControl,
+  CommandHandler,
+  RequestQueue,
+  buildErrorNote,
+  buildMediaContext,
+  buildMediaMetadataPrompt,
+  buildProgressNote,
+  buildSavedMediaPrompt,
+  buildUnsupportedInboundMessage,
+  decryptAes256CbcMedia,
+  downloadMediaFromUrl,
+  inferExtensionFromBuffer,
+  inferExtensionFromContentType,
+  runAITask,
+  saveBase64Media,
+  saveBufferMedia,
+  setChatUser,
+  startTaskCleanup,
+  type TaskRunState,
+  type ThreadContext,
+} from '../../../interaction/src/index.js';
+import {
+  sendThinkingMessage,
+  updateMessage,
+  sendFinalMessages,
+  sendFileReply,
+  sendTextReply,
+  sendImageReply,
+  startTypingLoop,
+  setCurrentReqId,
+} from './message-sender.js';
+import type { WeWorkCallbackMessage } from './types.js';
+import { getAdapter } from '../../../agents/src/index.js';
+import { isDuplicateWeWorkMessage } from "./inbound-dedupe.js";
+import type { ChannelRuntimeServices } from "../runtime-services.js";
+
+const log = createLogger('WeWorkHandler');
+const WEWORK_MEDIA_TIMEOUT_MS = 60_000;
+
+function buildWeWorkScopeId(chatId: string, userId: string): string {
+  return buildScopedSessionOwnerId({
+    platform: "wework",
+    chatId,
+    userId,
+  });
+}
+
+type MediaKind = 'image' | 'file' | 'voice' | 'video';
+
+interface WeWorkMediaPayload {
+  url?: string;
+  base64?: string;
+  md5?: string;
+  aeskey?: string;
+  filename?: string;
+  fileext?: string;
+  duration?: number;
+  [key: string]: unknown;
+}
+
+export interface WeWorkEventHandlerHandle {
+  stop: () => void;
+  getRunningTaskCount: () => number;
+  handleEvent: (data: WeWorkCallbackMessage) => Promise<void>;
+}
+
+async function saveWeWorkUrlMedia(
+  payload: WeWorkMediaPayload,
+  fallbackExtension: string,
+): Promise<string> {
+  if (!payload.url) {
+    throw new Error("Missing WeWork media URL");
+  }
+
+  if (typeof payload.aeskey === "string" && payload.aeskey.trim().length > 0) {
+    const response = await fetch(payload.url, { signal: AbortSignal.timeout(WEWORK_MEDIA_TIMEOUT_MS) });
+    if (!response.ok) {
+      throw new Error(`Failed to download media: HTTP ${response.status}`);
+    }
+
+    const encryptedBuffer = Buffer.from(await response.arrayBuffer());
+    const decryptedBuffer = decryptAes256CbcMedia(encryptedBuffer, payload.aeskey);
+    const extension =
+      inferExtensionFromBuffer(decryptedBuffer) ||
+      inferExtensionFromContentType(response.headers.get("content-type") ?? "") ||
+      `.${fallbackExtension}`;
+    return saveBufferMedia(decryptedBuffer, extension, payload.filename ?? payload.md5);
+  }
+
+  return downloadMediaFromUrl(payload.url, {
+    basenameHint: payload.filename ?? payload.md5,
+    fallbackExtension,
+  });
+}
+
+function extractTextContent(data: WeWorkCallbackMessage): string {
+  const body = data.body;
+
+  if (body.msgtype === 'text' && body.text?.content) {
+    return body.text.content.trim();
+  }
+
+  if (body.msgtype === 'mixed' && body.mixed?.msg_item) {
+    return body.mixed.msg_item
+      .filter((item) => item.msgtype === 'text' && item.text?.content)
+      .map((item) => item.text!.content.trim())
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  return '';
+}
+
+function extractImagePayload(data: WeWorkCallbackMessage): WeWorkMediaPayload | null {
+  const body = data.body;
+
+  if (body.msgtype === 'image' && body.image) {
+    return body.image;
+  }
+
+  if (body.msgtype === 'mixed' && body.mixed?.msg_item) {
+    const imageItem = body.mixed.msg_item.find((item) => item.msgtype === 'image' && item.image);
+    return imageItem?.image ?? null;
+  }
+
+  return null;
+}
+
+function extractMediaPayload(data: WeWorkCallbackMessage, kind: MediaKind): WeWorkMediaPayload | null {
+  if (kind === 'image') {
+    return extractImagePayload(data);
+  }
+
+  const raw = data.body as unknown as Record<string, unknown>;
+  const direct = raw[kind];
+  if (direct && typeof direct === 'object') {
+    return direct as WeWorkMediaPayload;
+  }
+
+  const quote = raw.quote;
+  if (quote && typeof quote === 'object') {
+    const quotePayload = quote as Record<string, unknown>;
+    const quotedKindPayload = quotePayload[kind];
+    if (quotedKindPayload && typeof quotedKindPayload === 'object') {
+      return quotedKindPayload as WeWorkMediaPayload;
+    }
+  }
+
+  return null;
+}
+
+export async function buildMediaPrompt(data: WeWorkCallbackMessage, kind: MediaKind): Promise<string | null> {
+  const text = extractTextContent(data);
+  const payload = extractMediaPayload(data, kind);
+  const contextText = buildMediaContext({
+    Filename: payload?.filename,
+    Extension: payload?.fileext,
+    DurationMs: payload?.duration,
+  }, text || undefined);
+
+  if (kind === 'image') {
+    const imagePayload = payload ?? extractImagePayload(data);
+    if (!imagePayload) return null;
+
+    let imageReference = '';
+    if (typeof imagePayload.base64 === 'string' && imagePayload.base64.length > 0) {
+      const savedPath = await saveBase64Media(imagePayload.base64, 'jpg');
+      return buildSavedMediaPrompt({
+        source: 'WeWork',
+        kind: 'image',
+        localPath: savedPath,
+        text: contextText,
+      });
+    } else if (typeof imagePayload.url === 'string' && imagePayload.url.length > 0) {
+      try {
+        const savedPath = await saveWeWorkUrlMedia(imagePayload, 'jpg');
+        log.info(`Downloaded WeWork image: ${savedPath}`);
+        return buildSavedMediaPrompt({
+          source: 'WeWork',
+          kind: 'image',
+          localPath: savedPath,
+          text: contextText,
+        });
+      } catch {
+        imageReference = `Remote image URL: ${imagePayload.url}`;
+      }
+    }
+
+    return buildMediaMetadataPrompt({
+      source: 'WeWork',
+      kind: 'image',
+      text: contextText,
+      metadata: {
+        reference: imageReference || 'No direct image bytes were included; only metadata is available.',
+        payload: imagePayload,
+      },
+      guidance:
+        'Analyze the image if a local path or accessible URL is available. Otherwise explain the limitation and ask the user to resend via Telegram/Feishu or provide more context.',
+    });
+  }
+
+  if (payload?.url) {
+    try {
+      const savedPath = await saveWeWorkUrlMedia(
+        payload,
+        kind === 'voice' ? 'ogg' : kind === 'video' ? 'mp4' : 'bin',
+      );
+      return buildSavedMediaPrompt({
+        source: 'WeWork',
+        kind,
+        localPath: savedPath,
+        text: contextText,
+      });
+    } catch {
+      // Fall back to metadata-only prompt.
+    }
+  }
+
+  return buildMediaMetadataPrompt({
+    source: 'WeWork',
+    kind,
+    text: contextText,
+    metadata: payload ?? 'none',
+    guidance:
+      'If the media content is not directly accessible, explain that clearly and ask the user for a text summary, transcript, or a resend via a channel with native media support.',
+  });
+}
+
+export function setupWeWorkHandlers(
+  config: Config,
+  sessionManager: SessionManager,
+  services: ChannelRuntimeServices = {},
+): WeWorkEventHandlerHandle {
+  const accessControl = new AccessControl(config.weworkAllowedUserIds);
+  const requestQueue = new RequestQueue();
+  const runningTasks = new Map<string, TaskRunState>();
+  const stopTaskCleanup = startTaskCleanup(runningTasks);
+
+  const commandHandler = new CommandHandler({
+    config,
+    sessionManager,
+    requestQueue,
+    sender: { sendTextReply },
+    getRunningTasksSize: () => runningTasks.size,
+  });
+
+  async function handleAIRequest(
+    scopeId: string,
+    chatId: string,
+    prompt: string,
+    workDir: string,
+    convId?: string,
+    _threadCtx?: { rootMessageId: string; threadId: string },
+    replyToMessageId?: string,
+    reqId?: string,
+  ) {
+    log.info(`[AI_REQUEST] scopeId=${scopeId}, chatId=${chatId}, promptLength=${prompt.length}`);
+    if (reqId) setCurrentReqId(reqId);
+
+    try {
+      const aiCommand = resolvePlatformAiCommand(config, 'wework');
+      const toolAdapter = getAdapter(aiCommand);
+      if (!toolAdapter) {
+        log.error(`[handleAIRequest] No adapter found for: ${aiCommand}`);
+        await sendTextReply(chatId, `未配置 AI 工具：${aiCommand}`, reqId);
+        return;
+      }
+
+      const sessionId = convId
+        ? sessionManager.getSessionIdForConv(scopeId, convId, aiCommand)
+        : undefined;
+      log.info(`[handleAIRequest] Running ${aiCommand} for scope ${scopeId}, sessionId=${sessionId ?? 'new'}`);
+
+      const toolId = aiCommand;
+      const msgId = await sendThinkingMessage(chatId, replyToMessageId, toolId, reqId);
+      const stopTyping = startTypingLoop(chatId);
+      const taskKey = `${scopeId}:${msgId}`;
+
+      await runAITask(
+        { config, sessionManager, currentTaskMediaHook: services.currentTaskMediaHook },
+        { userId: scopeId, chatId, workDir, sessionId, convId, platform: 'wework', taskKey },
+        prompt,
+        toolAdapter,
+        {
+          throttleMs: WEWORK_THROTTLE_MS,
+          streamUpdate: async (content, toolNote) => {
+            const note = buildProgressNote(toolNote);
+            try {
+              await updateMessage(chatId, msgId, content, 'streaming', note, toolId, reqId);
+            } catch (err) {
+              log.debug('Stream update failed:', err);
+            }
+          },
+          sendComplete: async (content, note) => {
+            await sendFinalMessages(chatId, msgId, content, note ?? '', toolId, reqId);
+          },
+          sendError: async (error) => {
+            await updateMessage(chatId, msgId, `错误：${error}`, 'error', buildErrorNote(), toolId, reqId);
+          },
+          extraCleanup: () => {
+            stopTyping();
+            runningTasks.delete(taskKey);
+          },
+          onTaskReady: (state) => {
+            runningTasks.set(taskKey, state);
+          },
+          sendImage: async (path) => {
+            await sendImageReply(chatId, path, reqId);
+          },
+          sendFile: async (path) => {
+            await sendFileReply(chatId, path, reqId);
+          },
+        },
+      );
+    } finally {
+      setCurrentReqId(null);
+    }
+  }
+
+  async function enqueuePrompt(
+    scopeId: string,
+    chatId: string,
+    prompt: string,
+    reqId: string,
+  ): Promise<void> {
+    const workDir = sessionManager.getWorkDir(scopeId);
+    const convId = sessionManager.getConvId(scopeId);
+    const enqueueResult = requestQueue.enqueue(scopeId, convId, prompt, async (nextPrompt) => {
+      await handleAIRequest(scopeId, chatId, nextPrompt, workDir, convId, undefined, undefined, reqId);
+    });
+
+    if (enqueueResult === 'rejected') {
+      await sendTextReply(chatId, '请求队列已满，请稍后再试。', reqId);
+    } else if (enqueueResult === 'queued') {
+      await sendTextReply(chatId, '您的请求已排队等待。', reqId);
+    }
+  }
+
+  async function handleEvent(data: WeWorkCallbackMessage): Promise<void> {
+    log.info('[handleEvent] Called with data:', JSON.stringify(data).slice(0, 800));
+
+    const reqId = data.headers?.req_id ?? '';
+    setCurrentReqId(reqId);
+
+    try {
+      const body = data.body;
+      if (isDuplicateWeWorkMessage(body.msgid)) {
+        log.info(`[MSG] Duplicate WeWork callback ignored: ${body.msgid}`);
+        return;
+      }
+      const msgType = body.msgtype;
+      const fromUser = body.from.userid;
+      const chatId = body.chatid ?? fromUser;
+      const scopeId = buildWeWorkScopeId(chatId, fromUser);
+
+      log.info(`WeWork event: msgType=${msgType}, from=${fromUser}, chatId=${chatId}`);
+
+      if (!accessControl.isAllowed(fromUser)) {
+        log.warn(`Access denied for sender: ${fromUser}`);
+        await sendTextReply(chatId, `抱歉，您没有访问权限。\n您的企业微信用户 ID：${fromUser}`, reqId);
+        return;
+      }
+
+      setActiveRouteAnchor('wework', { chatId, userId: fromUser });
+      setChatUser(chatId, fromUser, 'wework');
+
+      if (msgType === 'text') {
+        const text = extractTextContent(data);
+        if (!text) return;
+
+        try {
+          const handleAIRequestWithReqId = (
+            u: string,
+            c: string,
+            p: string,
+            w: string,
+            conv?: string,
+            tc?: ThreadContext,
+            replyTo?: string,
+          ) => handleAIRequest(u, c, p, w, conv, tc, replyTo, reqId);
+          const handled = await commandHandler.dispatch(text, chatId, scopeId, 'wework', handleAIRequestWithReqId);
+          if (handled) return;
+        } catch (err) {
+          log.error('Error in commandHandler.dispatch:', err);
+          await sendTextReply(chatId, '命令执行失败，请重试。', reqId);
+          return;
+        }
+
+        await enqueuePrompt(scopeId, chatId, text, reqId);
+        return;
+      }
+
+      if (msgType === 'mixed' || msgType === 'image') {
+        const prompt = await buildMediaPrompt(data, 'image');
+        if (!prompt) {
+          await sendTextReply(chatId, buildUnsupportedInboundMessage('wework', 'image'), reqId);
+          return;
+        }
+        await enqueuePrompt(scopeId, chatId, prompt, reqId);
+        return;
+      }
+
+      if (msgType === 'file' || msgType === 'voice' || msgType === 'video') {
+        const prompt = await buildMediaPrompt(data, msgType);
+        if (!prompt) {
+          await sendTextReply(chatId, buildUnsupportedInboundMessage('wework', msgType), reqId);
+          return;
+        }
+        await enqueuePrompt(scopeId, chatId, prompt, reqId);
+        return;
+      }
+
+      if (msgType === 'stream') {
+        log.debug(`[MSG] Stream message from ${fromUser}, streamId=${body.stream?.id}`);
+        return;
+      }
+
+      log.warn(`[MSG] Unsupported message type: ${msgType}, fromUser=${fromUser}`);
+    } catch (err) {
+      log.error('[handleEvent] Error processing event:', err);
+    } finally {
+      setCurrentReqId(null);
+    }
+  }
+
+  return {
+    stop: () => stopTaskCleanup(),
+    getRunningTaskCount: () => runningTasks.size,
+    handleEvent,
+  };
+}

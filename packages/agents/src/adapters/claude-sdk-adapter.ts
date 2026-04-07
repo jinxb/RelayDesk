@@ -1,0 +1,359 @@
+/**
+ * Claude SDK Adapter - 使用 Agent SDK V2 Session API 实现真正的多轮对话
+ *
+ * V2 API 优势：
+ * 1. 进程内执行 - 无 fork/exec 开销
+ * 2. 持久会话 - SDKSession 对象保持会话状态，支持真正的多轮对话
+ * 3. 流式输出 - 支持实时增量更新
+ *
+ * 认证：ANTHROPIC_API_KEY 或 CLAUDE_CODE_OAUTH_TOKEN
+ */
+
+import { unstable_v2_createSession, unstable_v2_resumeSession } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  McpSdkServerConfigWithInstance,
+  SDKMessage,
+  SDKSession,
+} from '@anthropic-ai/claude-agent-sdk';
+import { createLogger } from '../../../state/src/index.js';
+import type { ToolAdapter, RunCallbacks, RunOptions, RunHandle } from './tool-adapter.interface.js';
+import {
+  createCurrentTaskMediaSdkServer,
+  CURRENT_MEDIA_SERVER_NAME,
+} from './current-task-media-mcp.js';
+
+const log = createLogger('ClaudeSDK');
+
+// 存储所有活跃的 SDKSession 对象，key 为 sessionId
+// 使用 Map 而不是 Set，因为我们需要通过 sessionId 获取 session
+const activeSessions = new Map<string, SDKSession>();
+
+// 存储正在进行的流式迭代器，用于中断
+const activeStreams = new Set<AsyncIterator<SDKMessage>>();
+
+function isStreamEvent(msg: SDKMessage): boolean {
+  return (msg as { type?: string }).type === 'stream_event';
+}
+
+function isSystemInit(msg: SDKMessage): boolean {
+  const m = msg as { type?: string; subtype?: string };
+  return m.type === 'system' && m.subtype === 'init';
+}
+
+function isAssistant(msg: SDKMessage): boolean {
+  return (msg as { type?: string }).type === 'assistant';
+}
+
+function isResult(msg: SDKMessage): boolean {
+  return (msg as { type?: string }).type === 'result';
+}
+
+function buildCurrentTaskMediaServer(
+  options: Pick<RunOptions, 'hookPort' | 'hookToken'>,
+): Record<string, McpSdkServerConfigWithInstance> | null {
+  if (!options.hookPort || !options.hookToken) {
+    return null;
+  }
+
+  return {
+    [CURRENT_MEDIA_SERVER_NAME]: createCurrentTaskMediaSdkServer({
+      port: options.hookPort,
+      token: options.hookToken,
+    }),
+  };
+}
+
+async function setCurrentTaskMediaServers(
+  session: SDKSession,
+  options: Pick<RunOptions, 'hookPort' | 'hookToken'>,
+) {
+  const servers = buildCurrentTaskMediaServer(options);
+  if (!servers) {
+    return false;
+  }
+
+  await session.setMcpServers(servers);
+  return true;
+}
+
+async function clearCurrentTaskMediaServers(session: SDKSession) {
+  await session.setMcpServers({});
+}
+
+/**
+ * 获取或创建 SDKSession
+ * @param sessionId 已有的 sessionId，如果为 undefined 则创建新会话
+ * @param workDir 工作目录
+ * @param model 模型名称
+ * @param permissionMode 权限模式
+ * @returns SDKSession 对象和实际的 sessionId
+ */
+async function getOrCreateSession(
+  sessionId: string | undefined,
+  _workDir: string, // 保留参数以备将来使用
+  model: string | undefined,
+  permissionMode: 'default' | 'bypassPermissions' | 'acceptEdits' | 'plan'
+): Promise<{ session: SDKSession; sessionId: string }> {
+  const resolvedModel = model?.trim() || 'claude-opus-4-5';
+  const sessionOptions = {
+    model: resolvedModel,
+    permissionMode,
+    // 可以添加其他选项，如 hooks, allowedTools 等
+  };
+
+  const baseUrl = process.env.ANTHROPIC_BASE_URL ?? '(default)';
+  log.info(`[ClaudeSDK] model param=${String(model ?? '')} resolved=${resolvedModel} baseUrl=${baseUrl}`);
+
+  let session: SDKSession;
+
+  if (sessionId) {
+    // 尝试恢复已有会话
+    try {
+      log.info(`Attempting to resume session: ${sessionId}`);
+      session = unstable_v2_resumeSession(sessionId, sessionOptions);
+      activeSessions.set(sessionId, session);
+      log.info(`Successfully resumed session: ${sessionId}`);
+      return { session, sessionId };
+    } catch (err) {
+      log.warn(`Failed to resume session ${sessionId}, creating new one: ${err}`);
+      // 恢复失败，创建新会话
+    }
+  }
+
+  // 创建新会话
+  session = unstable_v2_createSession(sessionOptions);
+  // 新会话的 sessionId 需要从第一个消息中获取
+  // 暂时返回 undefined，稍后在 init 消息中获取
+  const tempId = `pending-${Date.now()}`;
+  activeSessions.set(tempId, session);
+  log.info(`Created new session (tempId: ${tempId})`);
+  return { session, sessionId: tempId };
+}
+
+export class ClaudeSDKAdapter implements ToolAdapter {
+  readonly toolId = 'claude-sdk';
+
+  /**
+   * 清理所有活跃的 SDK 会话和流
+   */
+  static destroy(): void {
+    for (const stream of activeStreams) {
+      try {
+        if (stream && typeof stream.return === 'function') {
+          stream.return();
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    activeStreams.clear();
+
+    for (const session of activeSessions.values()) {
+      try {
+        session.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    activeSessions.clear();
+  }
+
+  run(
+    prompt: string,
+    sessionId: string | undefined,
+    workDir: string,
+    callbacks: RunCallbacks,
+    options?: RunOptions
+  ): RunHandle {
+    const abortController = new AbortController();
+    let streamClosed = false;
+    let actualSessionId: string | undefined;
+
+    const permissionMode = options?.skipPermissions
+      ? ('bypassPermissions' as const)
+      : options?.permissionMode === 'acceptEdits'
+        ? ('acceptEdits' as const)
+        : options?.permissionMode === 'plan'
+          ? ('plan' as const)
+          : ('default' as const);
+
+    const runSession = async () => {
+      let session: SDKSession | null = null;
+      let attachedCurrentTaskMediaTool = false;
+      try {
+        // 检查环境变量
+        const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
+        const hasAuthToken = !!process.env.ANTHROPIC_AUTH_TOKEN;
+
+        if (!hasApiKey && !hasAuthToken) {
+          log.warn('Claude SDK: No API credentials found in environment variables');
+        }
+
+        log.info(`[V2] Session: ${sessionId ?? 'new'}, prompt="${prompt.slice(0, 50)}..."`);
+        log.info(`ClaudeSDK model param=${String(options?.model ?? '')} baseUrl=${process.env.ANTHROPIC_BASE_URL ?? '(default)'}`);
+
+        // 获取或创建会话
+        const sessionResult = await getOrCreateSession(sessionId, workDir, options?.model, permissionMode);
+        session = sessionResult.session;
+        attachedCurrentTaskMediaTool = await setCurrentTaskMediaServers(session, options ?? {});
+
+        // 发送用户消息
+        await session.send(prompt);
+
+        // 获取响应流
+        const stream = session.stream();
+        activeStreams.add(stream);
+
+        let accumulated = '';
+        let accumulatedThinking = '';
+        const toolStats: Record<string, number> = {};
+
+        try {
+          for await (const msg of stream) {
+            if (abortController.signal.aborted) {
+              log.info('Stream aborted by user');
+              break;
+            }
+
+            // 获取实际的 sessionId（从 init 消息中）
+            if (isSystemInit(msg)) {
+              const newSessionId = (msg as { session_id?: string }).session_id;
+              if (newSessionId && newSessionId !== actualSessionId) {
+                // 更新 sessionId 映射
+                if (actualSessionId && actualSessionId.startsWith('pending-')) {
+                  activeSessions.delete(actualSessionId);
+                }
+                activeSessions.set(newSessionId, session);
+                actualSessionId = newSessionId;
+                log.info(`[V2] Got actual sessionId: ${newSessionId}`);
+                callbacks.onSessionId?.(newSessionId);
+              }
+              continue;
+            }
+
+            // 处理流式事件
+            if (isStreamEvent(msg)) {
+              const ev = (msg as { event?: { type?: string; delta?: { type?: string; text?: string; thinking?: string } } }).event;
+              if (ev?.type === 'content_block_delta' && ev.delta) {
+                if (ev.delta.type === 'text_delta' && ev.delta.text) {
+                  accumulated += ev.delta.text;
+                  callbacks.onText(accumulated);
+                } else if (ev.delta.type === 'thinking_delta' && ev.delta.thinking) {
+                  accumulatedThinking += ev.delta.thinking;
+                  callbacks.onThinking?.(accumulatedThinking);
+                }
+              }
+              continue;
+            }
+
+            // 处理助手消息（工具调用）
+            if (isAssistant(msg)) {
+              const content = (msg as { message?: { content?: Array<{ type?: string; name?: string; input?: unknown }> } }).message?.content;
+              for (const block of content ?? []) {
+                if (block?.type === 'tool_use' && block.name) {
+                  toolStats[block.name] = (toolStats[block.name] || 0) + 1;
+                  callbacks.onToolUse?.(block.name, block.input as Record<string, unknown>);
+                }
+              }
+              continue;
+            }
+
+            // 处理结果消息
+            if (isResult(msg)) {
+              streamClosed = true;
+              const m = msg as { subtype?: string; result?: string; total_cost_usd?: number; duration_ms?: number; num_turns?: number; errors?: string[] };
+              const success = m.subtype === 'success';
+              const errs = m.errors ?? [];
+
+              log.info(`[V2] Result: subtype=${m.subtype}, num_turns=${m.num_turns}, sessionId=${actualSessionId ?? 'unknown'}`);
+
+              // 检查会话错误
+              if (!success) {
+                const noConvErr = errs.find((e) => e.includes('No conversation found') || e.includes('session not found'));
+                if (noConvErr) {
+                  log.warn(`Session ${actualSessionId} not found, may need to create new one`);
+                  callbacks.onSessionInvalid?.();
+                }
+                const errMsg = errs[0] || '未知错误';
+                callbacks.onError(errMsg);
+                return;
+              }
+
+              const resultText = m.result ?? '';
+              const result: Parameters<RunCallbacks['onComplete']>[0] = {
+                success,
+                result: resultText,
+                accumulated: success ? accumulated : '',
+                cost: m.total_cost_usd ?? 0,
+                durationMs: m.duration_ms ?? 0,
+                numTurns: m.num_turns ?? 0,
+                toolStats,
+              };
+
+              if (!result.accumulated && result.result) {
+                result.accumulated = result.result;
+              }
+              if (!result.accumulated && !result.result && accumulated) {
+                result.accumulated = accumulated;
+                result.result = accumulated;
+              }
+
+              callbacks.onComplete(result);
+              return;
+            }
+          }
+
+          // 如果流正常结束但没有收到 result 消息
+          if (!streamClosed && accumulated) {
+            log.info('Stream ended without result message, using accumulated text');
+            callbacks.onComplete({
+              success: true,
+              result: accumulated,
+              accumulated,
+              cost: 0,
+              durationMs: 0,
+              numTurns: 1,
+              toolStats,
+            });
+          }
+        } finally {
+          // 从活跃列表中移除流
+          activeStreams.delete(stream);
+        }
+      } catch (err) {
+        if (abortController.signal.aborted) {
+          log.info('Session run aborted');
+          return;
+        }
+
+        const errorObj = err as Error;
+        const msg = errorObj.message || String(err);
+
+        log.error(`Claude SDK V2 error: ${msg}`);
+        if (errorObj.stack) {
+          log.error(`Error stack: ${errorObj.stack}`);
+        }
+
+        callbacks.onError(msg);
+      } finally {
+        if (session && attachedCurrentTaskMediaTool) {
+          try {
+            await clearCurrentTaskMediaServers(session);
+          } catch (error) {
+            log.warn(`Failed to clear current-task media MCP server: ${error}`);
+          }
+        }
+      }
+    };
+
+    // 启动会话（不等待）
+    runSession();
+
+    return {
+      abort: () => {
+        log.info('Aborting session run');
+        abortController.abort();
+      },
+    };
+  }
+}

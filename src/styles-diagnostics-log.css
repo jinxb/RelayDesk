@@ -1,0 +1,179 @@
+.relaydesk-diagnosticsLayout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.86fr) minmax(0, 1.14fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.relaydesk-diagnosticsLayout[data-sidebar="false"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.relaydesk-diagnosticsSidebar,
+.relaydesk-diagnosticsMain {
+  min-height: 0;
+}
+
+.relaydesk-diagnosticsSidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.relaydesk-diagnosticsMain {
+  display: flex;
+  flex-direction: column;
+}
+
+.relaydesk-diagnosticsActionBar {
+  flex-shrink: 0;
+}
+
+.relaydesk-diagnosticsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.relaydesk-diagnosticsPanel--alerts {
+  flex: 1;
+}
+
+.relaydesk-diagnosticsLogCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  max-height: none;
+}
+
+.relaydesk-diagnosticsLogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relaydesk-diagnosticsLogAlert,
+.relaydesk-diagnosticsLogEmpty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.018);
+}
+
+.relaydesk-diagnosticsLogAlert[data-tone="danger"] {
+  border-color: rgba(224, 102, 102, 0.18);
+  background: rgba(224, 102, 102, 0.08);
+  color: var(--danger);
+}
+
+.relaydesk-diagnosticsLogStream {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.relaydesk-diagnosticsLogStream::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 7px;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.relaydesk-diagnosticsLogRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px 62px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.relaydesk-diagnosticsLogDot {
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(114, 108, 99, 0.4);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.94);
+}
+
+.relaydesk-diagnosticsLogRow[data-tone="success"] .relaydesk-diagnosticsLogDot {
+  background: var(--success);
+}
+
+.relaydesk-diagnosticsLogRow[data-tone="warning"] .relaydesk-diagnosticsLogDot {
+  background: var(--warning);
+}
+
+.relaydesk-diagnosticsLogRow[data-tone="danger"] .relaydesk-diagnosticsLogDot {
+  background: var(--danger);
+}
+
+.relaydesk-diagnosticsLogTime {
+  padding-top: 3px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-muted);
+}
+
+.relaydesk-diagnosticsLogBody {
+  display: grid;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.relaydesk-diagnosticsLogRow[data-tone="warning"] .relaydesk-diagnosticsLogBody {
+  border-color: rgba(228, 162, 74, 0.18);
+  background: rgba(228, 162, 74, 0.08);
+}
+
+.relaydesk-diagnosticsLogRow[data-tone="danger"] .relaydesk-diagnosticsLogBody {
+  border-color: rgba(224, 102, 102, 0.18);
+  background: rgba(224, 102, 102, 0.08);
+}
+
+.relaydesk-diagnosticsLogDetail {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .relaydesk-diagnosticsLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 819px) {
+  .relaydesk-diagnosticsLogStream::before {
+    left: 7px;
+  }
+
+  .relaydesk-diagnosticsLogRow {
+    grid-template-columns: 1fr;
+  }
+
+  .relaydesk-diagnosticsLogDot,
+  .relaydesk-diagnosticsLogTime {
+    display: none;
+  }
+}

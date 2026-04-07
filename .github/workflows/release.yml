@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release-macos:
+    name: Build macOS Release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches app version
+        run: |
+          VERSION="$(node -e "console.log(JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8')).version)")"
+          EXPECTED_TAG="v${VERSION}"
+          if [ "${GITHUB_REF_NAME}" != "${EXPECTED_TAG}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match app version ${EXPECTED_TAG}"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build desktop app
+        run: npm run build:desktop
+
+      - name: Package macOS app
+        run: |
+          VERSION="$(node -e "console.log(JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8')).version)")"
+          ASSET_NAME="RelayDesk-v${VERSION}-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            src-tauri/target/release/bundle/macos/RelayDesk.app \
+            "${ASSET_NAME}"
+          echo "ASSET_NAME=${ASSET_NAME}" >> "${GITHUB_ENV}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: ${{ env.ASSET_NAME }}
+
+  release-windows:
+    name: Build Windows Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify tag matches app version
+        shell: pwsh
+        run: |
+          $version = node -e "console.log(JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8')).version)"
+          $expectedTag = "v$version"
+          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
+            Write-Error "Tag $env:GITHUB_REF_NAME does not match app version $expectedTag"
+            exit 1
+          }
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build desktop app
+        run: npm run build:desktop
+
+      - name: Collect Windows assets
+        id: windows_assets
+        shell: pwsh
+        run: |
+          $assets = Get-ChildItem -Path "src-tauri/target/release/bundle" -Recurse -File |
+            Where-Object { $_.Extension -in @(".exe", ".msi") } |
+            Select-Object -ExpandProperty FullName
+
+          if (-not $assets) {
+            Write-Error "No Windows release assets were produced."
+            exit 1
+          }
+
+          "files<<EOF" >> $env:GITHUB_OUTPUT
+          $assets | ForEach-Object { $_ >> $env:GITHUB_OUTPUT }
+          "EOF" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Windows assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: false
+          files: ${{ steps.windows_assets.outputs.files }}
