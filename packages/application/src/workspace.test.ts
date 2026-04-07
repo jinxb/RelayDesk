@@ -1,7 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { execFileSyncMock } = vi.hoisted(() => ({
+  execFileSyncMock: vi.fn(),
+}));
+
+vi.mock("node:child_process", () => ({
+  execFileSync: execFileSyncMock,
+}));
+
 import { resolveRuntimeWorkTree, validateWorkspace, workspaceUsedAgents } from "./workspace.js";
 
 describe("workspaceUsedAgents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+  });
+
   it("ignores AI overrides on disabled channels", () => {
     const agents = workspaceUsedAgents({
       aiCommand: "codex",
@@ -27,6 +41,11 @@ describe("workspaceUsedAgents", () => {
 });
 
 describe("validateWorkspace", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+  });
+
   it("does not require Claude credentials when only disabled channels override Claude", () => {
     const result = validateWorkspace(
       {
@@ -127,6 +146,11 @@ describe("validateWorkspace", () => {
 });
 
 describe("resolveRuntimeWorkTree", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+  });
+
   it("prefers the selected default agent workdir", () => {
     const workTree = resolveRuntimeWorkTree({
       aiCommand: "codex",
@@ -152,6 +176,11 @@ describe("resolveRuntimeWorkTree", () => {
 });
 
 describe("normalizeWorkspaceConfig", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+  });
+
   it("keeps runtime keep-awake disabled by default", async () => {
     const { normalizeWorkspaceConfig } = await import("./workspace.js");
 
