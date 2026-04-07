@@ -22,12 +22,13 @@ const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 const NPM_COMMAND = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function runGit(args, options = {}) {
-  return execFileSync("git", args, {
+  const output = execFileSync("git", args, {
     cwd: repoRoot,
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf-8",
     ...options,
-  }).trim();
+  });
+  return typeof output === "string" ? output.trim() : "";
 }
 
 function runCommand(command, args) {
