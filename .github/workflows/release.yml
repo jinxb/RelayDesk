@@ -81,17 +81,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install rolldown Windows binding
+      - name: Repair optional native dependencies
         shell: pwsh
         run: |
-          $rolldownVersion = node -e "const lock=JSON.parse(require('fs').readFileSync('package-lock.json', 'utf8')); console.log(lock.packages['node_modules/rolldown'].version)"
-          npm install --no-save "@rolldown/binding-win32-x64-msvc@$rolldownVersion"
+          npm install --include=optional
 
-      - name: Install Tauri Windows binding
+      - name: Verify native Windows bindings
         shell: pwsh
         run: |
-          $tauriCliVersion = node -e "const lock=JSON.parse(require('fs').readFileSync('package-lock.json', 'utf8')); console.log(lock.packages['node_modules/@tauri-apps/cli'].version)"
-          npm install --no-save "@tauri-apps/cli-win32-x64-msvc@$tauriCliVersion"
+          node -e "require.resolve('@rolldown/binding-win32-x64-msvc')"
+          node -e "require.resolve('@tauri-apps/cli-win32-x64-msvc')"
 
       - name: Verify tag matches app version
         shell: pwsh
