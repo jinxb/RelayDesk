@@ -79,12 +79,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Repair optional native dependencies
         shell: pwsh
         run: |
-          npm install --include=optional
+          # Use npm install on Windows so native optional dependencies are
+          # resolved for the runner platform instead of being constrained by a
+          # lockfile generated on macOS.
+          npm install --include=optional --package-lock=false
 
       - name: Verify native Windows bindings
         shell: pwsh
