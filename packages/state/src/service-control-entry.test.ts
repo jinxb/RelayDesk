@@ -37,6 +37,7 @@ describe("startBackgroundService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     existsSyncMock.mockReturnValue(false);
+    execFileSyncMock.mockReturnValue(Buffer.from("node.exe 321 Console 1 10,000 K"));
     spawnMock.mockReturnValue({
       pid: 321,
       unref: vi.fn(),
