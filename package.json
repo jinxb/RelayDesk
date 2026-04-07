@@ -19,6 +19,7 @@
     "build:desktop": "npm run build:desktop-api:bundle && tauri build --bundles app",
     "build:desktop:dmg": "npm run build:desktop && node scripts/release/build-macos-dmg.mjs",
     "build:desktop:updater": "npm run build:desktop-api:bundle && node scripts/release/build-github-updater.mjs",
+    "publish:version": "node scripts/release/publish-version.mjs",
     "release:github:manifest": "node scripts/release/generate-github-manifest.mjs",
     "release:doctor:macos": "bash scripts/release/doctor-macos.sh"
   },
@@ -37,7 +38,6 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "@rolldown/binding-darwin-arm64": "^1.0.0-rc.11",
     "@tauri-apps/cli": "^2.8.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

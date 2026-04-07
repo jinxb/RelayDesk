@@ -11,3 +11,5 @@ src-tauri/gen/
 *.app/
 .codex-tasks/
 .tmp-relaydesk-overview.png
+docs/
+AGENTS.md
