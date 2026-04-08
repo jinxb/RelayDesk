@@ -9,7 +9,7 @@ interface WizardStepRailProps {
 export function WizardStepRail({ stepIndex, onSelect }: WizardStepRailProps) {
   return (
     <Box className="relaydesk-wizardRail">
-      <Heading size="3" mb="5" weight="bold">安装向导</Heading>
+      <Heading size="3" mb="4" weight="bold">安装向导</Heading>
       <Flex direction="column" gap="2">
         {wizardSteps.map((step, index) => {
           const state = index === stepIndex ? "active" : index < stepIndex ? "done" : "todo";
@@ -37,4 +37,3 @@ export function WizardStepRail({ stepIndex, onSelect }: WizardStepRailProps) {
     </Box>
   );
 }
-

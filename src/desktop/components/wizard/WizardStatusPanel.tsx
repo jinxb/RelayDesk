@@ -1,5 +1,5 @@
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { CheckCircle2, Info, LoaderCircle, TriangleAlert } from "lucide-react";
+import { Info, LoaderCircle, TriangleAlert } from "lucide-react";
 import { isRuntimeStarting } from "../../runtime-state";
 import type { RelayDeskStudio } from "../../types";
 
@@ -20,7 +20,7 @@ function shouldShow(studio: RelayDeskStudio) {
     return false;
   }
 
-  return studio.snapshot.status.tone !== "neutral";
+  return studio.snapshot.status.tone === "danger" || studio.snapshot.status.tone === "warning";
 }
 
 function statusIcon(studio: RelayDeskStudio) {
@@ -34,10 +34,6 @@ function statusIcon(studio: RelayDeskStudio) {
 
   if (studio.snapshot.status.tone === "warning") {
     return <TriangleAlert size={16} color="var(--warning)" />;
-  }
-
-  if (studio.snapshot.status.tone === "success") {
-    return <CheckCircle2 size={16} color="var(--success)" />;
   }
 
   return <Info size={16} color="var(--info)" />;

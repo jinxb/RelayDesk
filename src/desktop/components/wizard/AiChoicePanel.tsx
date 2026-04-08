@@ -1,4 +1,4 @@
-import { Badge, Box, Card, Flex, Grid, Text, TextField } from "@radix-ui/themes";
+import { Badge, Box, Flex, Grid, Text, TextField } from "@radix-ui/themes";
 import type { AgentKey } from "../../../lib/models";
 import { commonClaudeEnvKeys, parseClaudeEnvRecord, updateClaudeEnvRecord } from "../../claude-env";
 import type { RelayDeskStudio } from "../../types";
@@ -7,13 +7,45 @@ interface AiChoicePanelProps {
   readonly studio: RelayDeskStudio;
 }
 
+interface AgentMeta {
+  readonly key: AgentKey;
+  readonly title: string;
+  readonly summary: string;
+  readonly pendingLabel: string;
+}
+
+const AGENTS: readonly AgentMeta[] = [
+  {
+    key: "claude",
+    title: "Claude",
+    summary: "适合第一次接入，直接填写凭据即可。",
+    pendingLabel: "填写凭据",
+  },
+  {
+    key: "codex",
+    title: "Codex",
+    summary: "适合本机已完成登录的 CLI 环境。",
+    pendingLabel: "稍后复核",
+  },
+  {
+    key: "codebuddy",
+    title: "CodeBuddy",
+    summary: "适合低频备用或特定工作流。",
+    pendingLabel: "稍后复核",
+  },
+] as const;
+
+function agentMeta(agent: AgentKey) {
+  return AGENTS.find((item) => item.key === agent) ?? AGENTS[0];
+}
+
 function updateClaudeEnv(studio: RelayDeskStudio, key: string, value: string) {
   studio.actions.setClaudeEnvEditor(updateClaudeEnvRecord(studio.snapshot.claudeEnvEditor, key, value));
 }
 
 function updateToolField(
   studio: RelayDeskStudio,
-  tool: "claude" | "codex" | "codebuddy",
+  tool: AgentKey,
   field: string,
   value: string | number,
 ) {
@@ -51,38 +83,35 @@ function agentReady(studio: RelayDeskStudio, agent: AgentKey) {
   return diagnostics.codebuddyReady;
 }
 
-function agentSummary(agent: AgentKey) {
-  if (agent === "claude") return "最适合第一次完成远程接入。";
-  if (agent === "codex") return "适合已经完成本机登录和 CLI 配置的环境。";
-  return "低频备用工具，适合特定工作流。";
-}
-
-function AgentCard({ studio, agent }: { studio: RelayDeskStudio; agent: AgentKey }) {
-  const active = (studio.snapshot.workspace.aiCommand ?? "claude") === agent;
-  const ready = agentReady(studio, agent);
+function AgentOption({ studio, agent }: { studio: RelayDeskStudio; agent: AgentMeta }) {
+  const active = (studio.snapshot.workspace.aiCommand ?? "claude") === agent.key;
+  const ready = agentReady(studio, agent.key);
 
   return (
-    <Card
-      className="relaydesk-surface"
-      style={{
-        cursor: "pointer",
-        borderColor: active ? "rgba(20,163,139,0.38)" : "var(--line-subtle)",
-        background: active ? "rgba(221,246,240,0.74)" : "rgba(255,255,255,0.86)",
-      }}
+    <button
+      type="button"
+      className="relaydesk-wizardAgentOption"
+      data-active={active}
+      data-ready={ready}
       onClick={() => {
         studio.actions.updateWorkspace((draft) => {
-          draft.aiCommand = agent;
+          draft.aiCommand = agent.key;
         });
       }}
     >
-      <Flex direction="column" gap="2">
-        <Flex justify="between" align="center" gap="3">
-          <Text size="3" weight="bold">{agent}</Text>
-          <Badge color={ready ? "green" : "gray"}>{ready ? "就绪" : "需配置"}</Badge>
-        </Flex>
-        <Text size="2" color="gray">{agentSummary(agent)}</Text>
-      </Flex>
-    </Card>
+      <div className="relaydesk-wizardAgentOptionMain">
+        <div className="relaydesk-wizardAgentOptionTopline">
+          <Text size="4" weight="bold">{agent.title}</Text>
+          {active ? <span className="relaydesk-wizardAgentCurrent">当前选择</span> : null}
+        </div>
+        <Badge color={ready ? "green" : "gray"} radius="full">
+          {ready ? "已就绪" : agent.pendingLabel}
+        </Badge>
+      </div>
+      <Text size="2" color="gray" className="relaydesk-wizardAgentOptionCopy">
+        {agent.summary}
+      </Text>
+    </button>
   );
 }
 
@@ -91,35 +120,60 @@ function ClaudeQuickSetup({ studio }: { studio: RelayDeskStudio }) {
   const env = parseClaudeEnvRecord(studio.snapshot.claudeEnvEditor);
 
   return (
-    <Grid columns={{ initial: "1", md: "2" }} gap="4">
-      {commonClaudeEnvKeys.map((field) => (
-        <Box key={field.key} className="relaydesk-fieldBlock">
-          <Text as="label" size="2" weight="medium">{field.label}</Text>
-          <TextField.Root
-            type={field.secret ? "password" : "text"}
-            value={env[field.key] ?? ""}
-            onChange={(event) => updateClaudeEnv(studio, field.key, event.target.value)}
-            placeholder={field.placeholder}
-          />
-        </Box>
-      ))}
-      <Box className="relaydesk-fieldBlock">
-        <Text as="label" size="2" weight="medium">CLI 路径</Text>
+    <Flex direction="column" gap="3">
+      <Box className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
+        <Text as="label" size="2" weight="medium">API Key</Text>
         <TextField.Root
-          value={claude?.cliPath ?? ""}
-          onChange={(event) => updateToolField(studio, "claude", "cliPath", event.target.value)}
-          placeholder="留空则使用默认 SDK 模式"
+          type="password"
+          value={env.ANTHROPIC_API_KEY ?? ""}
+          onChange={(event) => updateClaudeEnv(studio, "ANTHROPIC_API_KEY", event.target.value)}
+          placeholder="sk-ant-..."
         />
       </Box>
-      <Box className="relaydesk-fieldBlock">
-        <Text as="label" size="2" weight="medium">代理地址（可选）</Text>
-        <TextField.Root
-          value={claude?.proxy ?? ""}
-          onChange={(event) => updateToolField(studio, "claude", "proxy", event.target.value)}
-          placeholder="http://127.0.0.1:7890"
-        />
-      </Box>
-    </Grid>
+
+      <details className="relaydesk-wizardInlineDisclosure">
+        <summary>其他接入方式</summary>
+        <div className="relaydesk-wizardConfigFields relaydesk-wizardConfigFields--compact">
+          <Box className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
+            <Text as="label" size="2" weight="medium">Base URL</Text>
+            <TextField.Root
+              value={env.ANTHROPIC_BASE_URL ?? ""}
+              onChange={(event) => updateClaudeEnv(studio, "ANTHROPIC_BASE_URL", event.target.value)}
+              placeholder="可选"
+            />
+          </Box>
+          {commonClaudeEnvKeys
+            .filter((field) => field.key !== "ANTHROPIC_API_KEY" && field.key !== "ANTHROPIC_BASE_URL")
+            .map((field) => (
+              <Box key={field.key} className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
+                <Text as="label" size="2" weight="medium">{field.label}</Text>
+                <TextField.Root
+                  type={field.secret ? "password" : "text"}
+                  value={env[field.key] ?? ""}
+                  onChange={(event) => updateClaudeEnv(studio, field.key, event.target.value)}
+                  placeholder={field.placeholder}
+                />
+              </Box>
+            ))}
+          <Box className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
+            <Text as="label" size="2" weight="medium">CLI 路径</Text>
+            <TextField.Root
+              value={claude?.cliPath ?? ""}
+              onChange={(event) => updateToolField(studio, "claude", "cliPath", event.target.value)}
+              placeholder="可选"
+            />
+          </Box>
+          <Box className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
+            <Text as="label" size="2" weight="medium">代理地址</Text>
+            <TextField.Root
+              value={claude?.proxy ?? ""}
+              onChange={(event) => updateToolField(studio, "claude", "proxy", event.target.value)}
+              placeholder="可选"
+            />
+          </Box>
+        </div>
+      </details>
+    </Flex>
   );
 }
 
@@ -127,26 +181,28 @@ function CodexQuickSetup({ studio }: { studio: RelayDeskStudio }) {
   const codex = studio.snapshot.workspace.tools?.codex;
 
   return (
-    <Grid columns={{ initial: "1", md: "2" }} gap="4">
-      <Box className="relaydesk-fieldBlock">
+    <Flex direction="column" gap="3">
+      <Box className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
         <Text as="label" size="2" weight="medium">CLI 路径</Text>
         <TextField.Root
           value={codex?.cliPath ?? "codex"}
           onChange={(event) => updateToolField(studio, "codex", "cliPath", event.target.value)}
         />
       </Box>
-      <Box className="relaydesk-fieldBlock">
-        <Text as="label" size="2" weight="medium">代理地址（可选）</Text>
-        <TextField.Root
-          value={codex?.proxy ?? ""}
-          onChange={(event) => updateToolField(studio, "codex", "proxy", event.target.value)}
-          placeholder="http://127.0.0.1:7890"
-        />
-      </Box>
-      <Text size="2" color="gray">
-        Codex 仍需要本机已有可用授权。这里只处理 CLI 路径与代理，不代替本地登录。
-      </Text>
-    </Grid>
+      <details className="relaydesk-wizardInlineDisclosure">
+        <summary>代理地址</summary>
+        <div className="relaydesk-wizardConfigFields relaydesk-wizardConfigFields--compact">
+          <Box className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
+            <Text as="label" size="2" weight="medium">代理地址</Text>
+            <TextField.Root
+              value={codex?.proxy ?? ""}
+              onChange={(event) => updateToolField(studio, "codex", "proxy", event.target.value)}
+              placeholder="http://127.0.0.1:7890"
+            />
+          </Box>
+        </div>
+      </details>
+    </Flex>
   );
 }
 
@@ -154,51 +210,45 @@ function CodeBuddyQuickSetup({ studio }: { studio: RelayDeskStudio }) {
   const codebuddy = studio.snapshot.workspace.tools?.codebuddy;
 
   return (
-    <Grid columns={{ initial: "1", md: "2" }} gap="4">
-      <Box className="relaydesk-fieldBlock">
+    <div className="relaydesk-wizardConfigFields relaydesk-wizardConfigFields--compact">
+      <Box className="relaydesk-fieldBlock relaydesk-fieldBlock--wide">
         <Text as="label" size="2" weight="medium">CLI 路径</Text>
         <TextField.Root
           value={codebuddy?.cliPath ?? "codebuddy"}
           onChange={(event) => updateToolField(studio, "codebuddy", "cliPath", event.target.value)}
         />
       </Box>
-      <Text size="2" color="gray">
-        CodeBuddy 在首次接入里通常作为备用工具，只要本机可执行即可。
-      </Text>
-    </Grid>
+    </div>
   );
 }
 
 export function AiChoicePanel({ studio }: AiChoicePanelProps) {
   const selected = studio.snapshot.workspace.aiCommand ?? "claude";
+  const selectedMeta = agentMeta(selected);
   const selectedReady = agentReady(studio, selected);
 
   return (
-    <Flex direction="column" gap="5">
-      <Grid columns={{ initial: "1", md: "3" }} gap="4">
-        <AgentCard studio={studio} agent="claude" />
-        <AgentCard studio={studio} agent="codex" />
-        <AgentCard studio={studio} agent="codebuddy" />
-      </Grid>
+    <Flex direction="column" gap="3">
+      <div className="relaydesk-wizardAgentList">
+        {AGENTS.map((agent) => (
+          <AgentOption key={agent.key} studio={studio} agent={agent} />
+        ))}
+      </div>
 
-      <Box className="relaydesk-surface" style={{ padding: 20 }}>
-        <Flex direction="column" gap="3">
-          <Flex justify="between" align="center" gap="3" wrap="wrap">
-            <div>
-              <Text size="3" weight="bold">{selected} 配置</Text>
-              <Text size="2" color="gray">
-                只展示首次接入必需的最少项，更多高级配置可在主界面里继续调整。
-              </Text>
-            </div>
-            <Badge color={selectedReady ? "green" : "amber"}>
-              {selectedReady ? "可以继续" : "还需补全"}
-            </Badge>
-          </Flex>
-
-          {selected === "claude" ? <ClaudeQuickSetup studio={studio} /> : null}
-          {selected === "codex" ? <CodexQuickSetup studio={studio} /> : null}
-          {selected === "codebuddy" ? <CodeBuddyQuickSetup studio={studio} /> : null}
+      <Box className="relaydesk-wizardConfigPanel">
+        <Flex justify="between" align="center" gap="3" wrap="wrap">
+          <div className="relaydesk-wizardConfigHeading">
+            <Text size="3" weight="bold">{selectedMeta.title} 配置</Text>
+            <Text size="2" color="gray">确认启动前会再校验一次。</Text>
+          </div>
+          <Badge color={selectedReady ? "green" : "amber"} radius="full">
+            {selectedReady ? "已就绪" : "待复核"}
+          </Badge>
         </Flex>
+
+        {selected === "claude" ? <ClaudeQuickSetup studio={studio} /> : null}
+        {selected === "codex" ? <CodexQuickSetup studio={studio} /> : null}
+        {selected === "codebuddy" ? <CodeBuddyQuickSetup studio={studio} /> : null}
       </Box>
     </Flex>
   );

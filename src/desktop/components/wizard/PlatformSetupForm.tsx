@@ -37,11 +37,11 @@ export function PlatformSetupForm({ channelKey, studio, onTest }: PlatformSetupF
   });
 
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap="3">
       <Flex justify="between" align="center" gap="3" wrap="wrap">
         <div>
           <Text size="3" weight="bold">{def.title} 接入信息</Text>
-          <Text size="2" color="gray">先填写最基本的连接信息，再执行一次连通性测试。</Text>
+          <Text size="2" color="gray">填写最基本连接信息后执行一次测试。</Text>
         </div>
         <Badge color={probeState.badgeColor}>{probeState.badgeLabel}</Badge>
       </Flex>
@@ -59,7 +59,7 @@ export function PlatformSetupForm({ channelKey, studio, onTest }: PlatformSetupF
         </label>
       ))}
 
-      <Box mt="4">
+      <Box mt="2">
         <Button onClick={() => void onTest()} disabled={studio.snapshot.busy}>
           测试连接
         </Button>

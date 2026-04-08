@@ -118,7 +118,7 @@ export function useSetupWizardState(studio: RelayDeskStudio) {
   function canContinue() {
     if (stepIndex === 0) return Boolean(selectedChannel);
     if (stepIndex === 1) return channelConfigured;
-    if (stepIndex === 2) return agentReady;
+    if (stepIndex === 2) return Boolean(selectedAgent);
     if (stepIndex === 3) return Boolean(workdir.trim());
     return Boolean(validation?.ok);
   }

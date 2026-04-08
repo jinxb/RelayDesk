@@ -28,12 +28,12 @@ export function SetupWizardView({ studio }: { studio: RelayDeskStudio }) {
           <WindowDragRegion><div style={{ width: "100%", height: "100%" }} /></WindowDragRegion>
         </div>
 
-        <Heading size="6" mb="1" mt="2">{activeStep.label}</Heading>
-        <Text size="2" color="gray" mb="6">{activeStep.description}</Text>
+        <Heading size="6" mb="1" mt="1">{activeStep.label}</Heading>
+        <Text size="2" color="gray" mb="4">{activeStep.description}</Text>
 
-        <WizardStatusPanel studio={studio} />
+        {wizard.stepIndex === 2 ? null : <WizardStatusPanel studio={studio} />}
 
-        <Box style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 4, marginRight: -8 }}>
+        <Box className="relaydesk-wizardContentScroll">
           {wizard.stepIndex === 0 ? (
             <PlatformChoiceList value={wizard.selectedChannel} onChange={wizard.chooseChannel} />
           ) : null}

@@ -1,4 +1,4 @@
-import { Badge, Card, Flex, Grid, Text } from "@radix-ui/themes";
+import { Badge, Text } from "@radix-ui/themes";
 import { channelDefinitions } from "../../catalog";
 import type { ChannelKey } from "../../../lib/models";
 
@@ -7,44 +7,35 @@ interface PlatformChoiceListProps {
   readonly onChange: (key: ChannelKey) => void;
 }
 
+function compactSummary(summary: string) {
+  const text = summary.replace(/，已支持原生图片与文件回传。?/g, "");
+  return text.length > 26 ? `${text.slice(0, 26)}...` : text;
+}
+
 export function PlatformChoiceList({ value, onChange }: PlatformChoiceListProps) {
   return (
-    <Grid columns="2" gap="4">
+    <div className="relaydesk-wizardPlatformGrid">
       {channelDefinitions.map((def) => {
         const active = value === def.key;
         return (
-          <Card 
-            key={def.key} 
-            variant={active ? "classic" : "surface"} 
-            style={{ 
-              cursor: "pointer", 
-              outline: active ? "2px solid var(--accent)" : "none",
-              background: active ? "var(--bg-surface)" : "var(--bg-soft)"
-            }}
+          <button
+            key={def.key}
+            type="button"
+            className="relaydesk-wizardPlatformCard"
+            data-active={active}
             onClick={() => onChange(def.key)}
           >
-            <Flex direction="column" gap="2">
-              <Flex align="center" justify="between" gap="2">
-                <Text size="3" weight="bold" style={{ color: "var(--text-strong)" }}>{def.title}</Text>
-                {active ? <Badge color="green">已选择</Badge> : null}
-              </Flex>
-              <Text size="2" color="gray" style={{ minHeight: "40px" }}>{def.summary}</Text>
-              <Text
-                size="1"
-                color="gray"
-                style={{
-                  padding: "4px 8px",
-                  background: "rgba(0,0,0,0.04)",
-                  width: "fit-content",
-                  borderRadius: "99px",
-                }}
-              >
-                {def.mode}
-              </Text>
-            </Flex>
-          </Card>
+            <div className="relaydesk-wizardPlatformCardTopline">
+              <Text size="4" weight="bold">{def.title}</Text>
+              {active ? <Badge color="green" radius="full">已选</Badge> : null}
+            </div>
+            <Text size="2" color="gray" className="relaydesk-wizardPlatformCardCopy">
+              {compactSummary(def.summary)}
+            </Text>
+            <span className="relaydesk-wizardPlatformCardMeta">{def.mode}</span>
+          </button>
         );
       })}
-    </Grid>
+    </div>
   );
 }

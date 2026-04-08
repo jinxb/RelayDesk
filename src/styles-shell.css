@@ -242,13 +242,13 @@
 }
 
 .relaydesk-wizardDialog {
-  width: 720px;
-  height: min(620px, calc(100vh - 80px));
+  width: min(820px, calc(100vw - 80px));
+  height: min(700px, calc(100vh - 40px));
   background: var(--bg-surface);
   border-radius: 20px;
   box-shadow: 0 30px 90px rgba(74, 63, 52, 0.16), 0 0 0 1px rgba(184, 171, 153, 0.18);
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 184px 1fr;
   overflow: hidden;
   position: relative;
 }

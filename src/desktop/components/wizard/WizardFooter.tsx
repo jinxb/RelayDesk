@@ -31,7 +31,7 @@ export function WizardFooter({
     : "继续";
 
   return (
-    <Flex justify="between" align="center" gap="3" mt="7" wrap="wrap">
+    <Flex justify="between" align="center" gap="3" mt="3" wrap="wrap">
       <Flex gap="2">
         <Button
           variant="soft"
