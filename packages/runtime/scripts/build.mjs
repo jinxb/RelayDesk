@@ -16,6 +16,7 @@ await build({
   bundle: true,
   platform: "node",
   format: "esm",
+  packages: "external",
   target: "node20",
   sourcemap: false,
   legalComments: "none",

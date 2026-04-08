@@ -46,7 +46,8 @@
     "resources": [
       "desktop-api",
       "runtime",
-      "relaydesk-runtime"
+      "relaydesk-runtime",
+      "node_modules"
     ]
   },
   "plugins": {

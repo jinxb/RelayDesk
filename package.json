@@ -12,7 +12,7 @@
     "build:web": "vite build",
     "build:runtime:bundle": "node scripts/prepare-runtime.mjs",
     "build:worker:bundle": "npm --prefix packages/runtime run build && node scripts/prepare-worker.mjs",
-    "build:desktop-api:bundle": "npm --prefix packages/desktop-api run build && npm run build:worker:bundle && npm run build:runtime:bundle && node scripts/prepare-sidecar.mjs",
+    "build:desktop-api:bundle": "npm --prefix packages/desktop-api run build && npm run build:worker:bundle && npm run build:runtime:bundle && node scripts/prepare-sidecar.mjs && node scripts/prepare-node-modules.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 1421",
     "test": "node --import ./scripts/node-styletext-compat.mjs ./node_modules/vitest/vitest.mjs run --config vitest.config.ts",
     "dev:desktop": "tauri dev",
