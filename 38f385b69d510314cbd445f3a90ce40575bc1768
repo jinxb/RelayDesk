@@ -1,0 +1,93 @@
+src/styles-shell.css
+  2e6efefeee37af96 245-246,251
+src/desktop/components/wizard/WizardStepRail.tsx
+  2e6efefeee37af96 12
+src/desktop/components/wizard/SetupWizardView.tsx
+  2e6efefeee37af96 31-32,34,36
+src/desktop/components/wizard/PlatformSetupForm.tsx
+  2e6efefeee37af96 40,44,62
+src/desktop/components/wizard/useSetupWizardState.ts
+  2e6efefeee37af96 121
+src/desktop/components/wizard/WizardFooter.tsx
+  2e6efefeee37af96 34
+src/styles-workspace.css
+  2e6efefeee37af96 13,22-23,30-36,45-46,57,97,128-208,211-291,719-722,736-743
+src/desktop/components/wizard/PlatformChoiceList.tsx
+  2e6efefeee37af96 1,10-14,17,21-25,28-36,39
+src/desktop/components/wizard/WizardStatusPanel.tsx
+  2e6efefeee37af96 2,23
+src/desktop/components/wizard/AiChoicePanel.tsx
+  2e6efefeee37af96 1,10-41,48,86-88,91-95,98,102-114,123-125,127-130,133-176,184-185,192-205,213-214,221,227,231-236,238-246,248-251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "38f385b69d510314cbd445f3a90ce40575bc1768",
+  "prompts": {
+    "2e6efefeee37af96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4c2c-c196-7ff0-b3d3-15c11cd6429f",
+        "model": "gpt-5.4"
+      },
+      "human_author": "jinxb",
+      "messages": [],
+      "total_additions": 378,
+      "total_deletions": 155,
+      "accepted_lines": 377,
+      "overriden_lines": 0
+    },
+    "ab7e1010cb830c19": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2dee-4011-72c0-bb75-acc6d901c847",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Jin Bin",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 127,
+      "overriden_lines": 0
+    },
+    "ad6f492b86be2c5b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5160-0c12-7232-aa13-055219b649b0",
+        "model": "gpt-5.4"
+      },
+      "human_author": "jinxb",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "b865207c61d60a4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2d1b-4a76-7373-9168-0701b98daeba",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Jin Bin",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 692,
+      "overriden_lines": 0
+    },
+    "d80b1faea62b7a41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d29b6-fa91-7091-942d-2d92a581f6f2",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Jin Bin",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3997,
+      "overriden_lines": 0
+    }
+  }
+}
