@@ -16,6 +16,7 @@ import {
 
 const log = createLogger('CodexCli');
 const windowsCodexLaunchCache = new Map<string, { command: string; args: string[] } | null>();
+const posixCodexLaunchCache = new Map<string, { command: string; args: string[] } | null>();
 const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.png',
   '.jpg',
@@ -235,6 +236,43 @@ function extractCodexJsFromCmdShim(cmdPath: string): string | null {
   }
 }
 
+function extractCodexJsFromPosixShim(shimPath: string): string | null {
+  try {
+    const content = readFileSync(shimPath, 'utf-8');
+    const jsMatch = content.match(/exec (?:\"\$basedir\/node\"|node)\s+\"\$basedir\/([^"\r\n]*codex\.js)\"/i);
+    if (!jsMatch) {
+      return null;
+    }
+
+    return join(dirname(shimPath), jsMatch[1]);
+  } catch {
+    return null;
+  }
+}
+
+function resolvePosixCodexLaunch(
+  cliPath: string,
+  args: string[],
+): { command: string; args: string[] } | null {
+  if (posixCodexLaunchCache.has(cliPath)) {
+    const cached = posixCodexLaunchCache.get(cliPath);
+    return cached ? { command: cached.command, args: [...cached.args, ...args] } : null;
+  }
+
+  const codexJsPath = extractCodexJsFromPosixShim(cliPath);
+  if (!codexJsPath) {
+    posixCodexLaunchCache.set(cliPath, null);
+    return null;
+  }
+
+  const resolved = {
+    command: process.execPath,
+    args: [codexJsPath],
+  };
+  posixCodexLaunchCache.set(cliPath, resolved);
+  return { command: resolved.command, args: [...resolved.args, ...args] };
+}
+
 function resolveWindowsCodexLaunch(
   cliPath: string,
   args: string[],
@@ -314,14 +352,23 @@ export function runCodex(
   const isWinCmd =
     process.platform === 'win32' &&
     (/\.(cmd|bat)$/i.test(cliPath) || cliPath === 'codex');
+  const isPosixShim =
+    process.platform !== 'win32' &&
+    (isAbsolute(cliPath) || cliPath.includes('/'));
   const directWindowsLaunch = isWinCmd ? resolveWindowsCodexLaunch(cliPath, args) : null;
+  const directPosixLaunch =
+    !directWindowsLaunch && isPosixShim ? resolvePosixCodexLaunch(cliPath, args) : null;
   const spawnCmd = directWindowsLaunch
     ? directWindowsLaunch.command
+    : directPosixLaunch
+      ? directPosixLaunch.command
     : isWinCmd
       ? 'cmd.exe'
       : cliPath;
   const spawnArgs = directWindowsLaunch
     ? directWindowsLaunch.args
+    : directPosixLaunch
+      ? directPosixLaunch.args
     : isWinCmd
       ? [
           '/d',
