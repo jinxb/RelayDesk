@@ -1,0 +1,60 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "ad199ac67042b28e245b661c535ec678bc538147",
+  "prompts": {
+    "ab7e1010cb830c19": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2dee-4011-72c0-bb75-acc6d901c847",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Jin Bin",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 127,
+      "overriden_lines": 0
+    },
+    "ad6f492b86be2c5b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5160-0c12-7232-aa13-055219b649b0",
+        "model": "gpt-5.4"
+      },
+      "human_author": "jinxb",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "b865207c61d60a4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d2d1b-4a76-7373-9168-0701b98daeba",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Jin Bin",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 692,
+      "overriden_lines": 0
+    },
+    "d80b1faea62b7a41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d29b6-fa91-7091-942d-2d92a581f6f2",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Jin Bin",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3997,
+      "overriden_lines": 0
+    }
+  }
+}
