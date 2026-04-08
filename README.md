@@ -144,6 +144,10 @@ npm run build:web
 `-- vite.config.ts
 ```
 
+## Community
+
+[![LINUX DO](https://img.shields.io/badge/LINUX%20DO-Community-blue)](https://linux.do)
+
 ## 许可证
 
 [MIT License](./LICENSE)
