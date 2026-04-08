@@ -336,8 +336,17 @@ export function loadFileConfig(): FileConfig {
       return migrated as FileConfig;
     }
     return raw as FileConfig;
-  } catch {
-    return {};
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      return {};
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read RelayDesk config at ${CONFIG_PATH}: ${message}`);
   }
 }
 

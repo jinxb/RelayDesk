@@ -56,8 +56,24 @@ describe("config", () => {
   });
 
   it("loadFileConfig returns empty object when config file is missing", () => {
+    const missing = Object.assign(new Error("missing"), { code: "ENOENT" });
+    readFileSyncMock.mockImplementation(() => {
+      throw missing;
+    });
+
     const file = loadFileConfig();
     expect(file).toEqual({});
+  });
+
+  it("surfaces invalid config file errors instead of silently returning empty config", () => {
+    readFileSyncMock.mockImplementation((path: string) => {
+      if (path.endsWith("config.json")) {
+        return "{ invalid json";
+      }
+      throw Object.assign(new Error("missing"), { code: "ENOENT" });
+    });
+
+    expect(() => loadFileConfig()).toThrow(/Failed to read RelayDesk config/);
   });
 
   it("skips global Claude settings merge when isolation flag is enabled", () => {
