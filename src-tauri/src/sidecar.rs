@@ -57,7 +57,7 @@ fn release_runtime_entry<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
 
 fn release_sidecar_entry<R: Runtime>(app: &AppHandle<R>) -> Option<(String, Vec<String>)> {
     let resource_dir = app.path().resource_dir().ok()?;
-    let entry = resource_dir.join("desktop-api/desktop-api.mjs");
+    let entry = resource_dir.join("desktop-api").join("desktop-api.mjs");
     if !entry.exists() {
         return None;
     }
@@ -65,7 +65,7 @@ fn release_sidecar_entry<R: Runtime>(app: &AppHandle<R>) -> Option<(String, Vec<
     let runtime = release_runtime_entry(app)?;
     Some((
         runtime.to_string_lossy().to_string(),
-        vec![entry.to_string_lossy().to_string()],
+        vec!["desktop-api/desktop-api.mjs".to_string()],
     ))
 }
 
@@ -154,12 +154,21 @@ fn stderr_excerpt(stderr_tail: &Arc<Mutex<String>>) -> Option<String> {
 
 fn spawn_sidecar<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarProcess, String> {
     let (command, args) = sidecar_command(app)?;
-    let mut child = Command::new(command)
+    let mut command_builder = Command::new(command);
+    command_builder
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .env("RELAYDESK_DESKTOP_API_TRANSPORT", "stdio")
+        .env("RELAYDESK_DESKTOP_API_TRANSPORT", "stdio");
+
+    if !cfg!(debug_assertions) {
+        if let Ok(resource_dir) = app.path().resource_dir() {
+            command_builder.current_dir(resource_dir);
+        }
+    }
+
+    let mut child = command_builder
         .spawn()
         .map_err(|error| format!("Unable to launch the local sidecar: {error}"))?;
 
