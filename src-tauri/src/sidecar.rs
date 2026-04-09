@@ -1,5 +1,7 @@
 use crate::models::{SidecarHttpRequest, SidecarRpcResponse, SidecarSnapshot};
 use std::io::{BufRead, BufReader, Read, Write};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -7,6 +9,8 @@ use std::thread;
 use tauri::{AppHandle, Manager, Runtime, State};
 
 const MAX_STDERR_TAIL_BYTES: usize = 8 * 1024;
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 struct SidecarProcess {
     child: Child,
@@ -167,6 +171,9 @@ fn spawn_sidecar<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarProcess, Strin
             command_builder.current_dir(resource_dir);
         }
     }
+
+    #[cfg(target_os = "windows")]
+    command_builder.creation_flags(CREATE_NO_WINDOW);
 
     let mut child = command_builder
         .spawn()
