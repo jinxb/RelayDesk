@@ -1,0 +1,23 @@
+src-tauri/src/sidecar.rs
+  ad6f492b86be2c5b 60,68,157-158,163-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "7b655559258feb61fac385258a422f13d1c0b2ad",
+  "prompts": {
+    "ad6f492b86be2c5b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5160-0c12-7232-aa13-055219b649b0",
+        "model": "gpt-5.4"
+      },
+      "human_author": "jinxb",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 4,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}
