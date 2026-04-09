@@ -1,14 +1,18 @@
 use crate::models::{SidecarHttpRequest, SidecarRpcResponse, SidecarSnapshot};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::Mutex;
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::{Arc, Mutex};
+use std::thread;
 use tauri::{AppHandle, Manager, Runtime, State};
+
+const MAX_STDERR_TAIL_BYTES: usize = 8 * 1024;
 
 struct SidecarProcess {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
+    stderr_tail: Arc<Mutex<String>>,
 }
 
 pub struct SidecarStore(Mutex<Option<SidecarProcess>>);
@@ -111,13 +115,50 @@ fn with_store<T>(
     action(&mut lock)
 }
 
+fn spawn_stderr_collector(stderr: ChildStderr) -> Arc<Mutex<String>> {
+    let tail = Arc::new(Mutex::new(String::new()));
+    let sink = Arc::clone(&tail);
+
+    thread::spawn(move || {
+        let mut reader = BufReader::new(stderr);
+        let mut chunk = [0_u8; 1024];
+
+        loop {
+            let bytes = match reader.read(&mut chunk) {
+                Ok(0) | Err(_) => break,
+                Ok(bytes) => bytes,
+            };
+
+            let text = String::from_utf8_lossy(&chunk[..bytes]);
+            if let Ok(mut buffer) = sink.lock() {
+                buffer.push_str(&text);
+                if buffer.len() > MAX_STDERR_TAIL_BYTES {
+                    let keep_from = buffer.len() - MAX_STDERR_TAIL_BYTES;
+                    let trimmed = buffer[keep_from..].to_string();
+                    *buffer = trimmed;
+                }
+            }
+        }
+    });
+
+    tail
+}
+
+fn stderr_excerpt(stderr_tail: &Arc<Mutex<String>>) -> Option<String> {
+    let text = stderr_tail.lock().ok()?.trim().to_string();
+    if text.is_empty() {
+        return None;
+    }
+    Some(text)
+}
+
 fn spawn_sidecar<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarProcess, String> {
     let (command, args) = sidecar_command(app)?;
     let mut child = Command::new(command)
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .env("RELAYDESK_DESKTOP_API_TRANSPORT", "stdio")
         .spawn()
         .map_err(|error| format!("Unable to launch the local sidecar: {error}"))?;
@@ -130,11 +171,17 @@ fn spawn_sidecar<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarProcess, Strin
         .stdout
         .take()
         .ok_or_else(|| "Unable to capture sidecar stdout.".to_string())?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "Unable to capture sidecar stderr.".to_string())?;
+    let stderr_tail = spawn_stderr_collector(stderr);
 
     Ok(SidecarProcess {
         child,
         stdin,
         stdout: BufReader::new(stdout),
+        stderr_tail,
     })
 }
 
@@ -180,7 +227,11 @@ fn send_request(
         .read_line(&mut line)
         .map_err(|error| format!("Unable to read sidecar response: {error}"))?;
     if bytes == 0 {
-        return Err("Sidecar closed the RPC stream unexpectedly.".to_string());
+        let detail = stderr_excerpt(&process.stderr_tail);
+        return Err(match detail {
+            Some(detail) => format!("Sidecar closed the RPC stream unexpectedly. {detail}"),
+            None => "Sidecar closed the RPC stream unexpectedly.".to_string(),
+        });
     }
 
     let response = serde_json::from_str::<SidecarRpcResponse>(line.trim())
