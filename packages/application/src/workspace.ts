@@ -33,6 +33,41 @@ function workDirForAgent(workspace: FileConfig, agent: AgentKey): string {
   return "";
 }
 
+export function runtimeFallbackWorkDir(): string {
+  return process.env.HOME || process.env.USERPROFILE || homedir();
+}
+
+export function resolveConfiguredRuntimeWorkDir(workspace: FileConfig): string {
+  const normalizedDefaultAgent = (workspace.aiCommand as AgentKey | undefined) ?? "claude";
+  const preferred = workDirForAgent(workspace, normalizedDefaultAgent);
+  if (preferred) {
+    return preferred;
+  }
+
+  for (const agent of knownAgents) {
+    const candidate = workDirForAgent(workspace, agent);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return "";
+}
+
+export function resolveRouteDefaultWorkDir(
+  workspace: FileConfig,
+  agent: string,
+): string {
+  const knownAgent = knownAgents.includes(agent as AgentKey) ? (agent as AgentKey) : undefined;
+  const preferred = knownAgent ? workDirForAgent(workspace, knownAgent) : "";
+  if (preferred) {
+    return preferred;
+  }
+
+  const configured = resolveConfiguredRuntimeWorkDir(workspace);
+  return configured || runtimeFallbackWorkDir();
+}
+
 export interface WorkspaceValidationResult {
   ok: boolean;
   issues: string[];
@@ -141,20 +176,8 @@ export function workspaceUsedAgents(workspace: FileConfig): AgentKey[] {
 }
 
 export function resolveRuntimeWorkTree(workspace: FileConfig): string {
-  const normalizedDefaultAgent = (workspace.aiCommand as AgentKey | undefined) ?? "claude";
-  const preferred = workDirForAgent(workspace, normalizedDefaultAgent);
-  if (preferred) {
-    return preferred;
-  }
-
-  for (const agent of knownAgents) {
-    const candidate = workDirForAgent(workspace, agent);
-    if (candidate) {
-      return candidate;
-    }
-  }
-
-  return process.cwd();
+  const configured = resolveConfiguredRuntimeWorkDir(workspace);
+  return configured || runtimeFallbackWorkDir();
 }
 
 export function resolveClaudeCredentialState(

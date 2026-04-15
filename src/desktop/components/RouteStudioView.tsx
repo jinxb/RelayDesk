@@ -31,7 +31,9 @@ function WorkspaceLogCard({ studio }: { studio: RelayDeskStudio }) {
 
       <div className="relaydesk-settingsStorageIntro">
         <Text size="2" color="gray" className="relaydesk-settingsStorageHint">
-          {`当前默认工作区：${workdir}`}
+          {workdir === "未设置"
+            ? "当前未显式设置默认工作区；运行时将回退到当前用户主目录。"
+            : `当前默认工作区：${workdir}`}
         </Text>
       </div>
 
@@ -41,7 +43,7 @@ function WorkspaceLogCard({ studio }: { studio: RelayDeskStudio }) {
             <TextField.Root
               style={{ flex: 1 }}
               value={workdir === "未设置" ? "" : workdir}
-              placeholder="/Users/you/work/project"
+              placeholder="留空则回退到当前用户主目录"
               onChange={(e) => {
                 studio.actions.updateWorkspace((draft) => {
                   setPreferredWorkdir(draft, e.target.value);

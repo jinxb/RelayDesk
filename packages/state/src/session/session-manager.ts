@@ -32,6 +32,10 @@ interface ThreadState {
   sessionIds?: ToolSessionIds;
   totalTurns?: number;
   claudeModel?: string;
+  workDir?: string;
+  updatedAt?: number;
+  history?: ConversationTurn[];
+  lastResetReason?: ResetReason;
 }
 
 interface UserSession {
@@ -438,6 +442,7 @@ export class SessionManager {
   }
 
   private resetConversation(session: UserSession, reason: ResetReason): void {
+    this.archiveActiveConversation(session, reason);
     session.sessionIds = {};
     session.activeConvId = nextConvId();
     session.totalTurns = 0;
@@ -449,6 +454,33 @@ export class SessionManager {
 
   private touch(session: UserSession): void {
     session.updatedAt = Date.now();
+  }
+
+  private archiveActiveConversation(session: UserSession, reason: ResetReason): void {
+    const activeConvId = session.activeConvId;
+    const archivedAt = Date.now();
+    const hasSnapshot =
+      Boolean(activeConvId) &&
+      (
+        (session.history?.length ?? 0) > 0 ||
+        Object.keys(session.sessionIds ?? {}).length > 0 ||
+        (session.totalTurns ?? 0) > 0
+      );
+
+    if (!activeConvId || !hasSnapshot) {
+      return;
+    }
+
+    session.threads ??= {};
+    session.threads[activeConvId] = {
+      sessionIds: { ...(session.sessionIds ?? {}) },
+      totalTurns: session.totalTurns,
+      claudeModel: session.claudeModel,
+      workDir: session.workDir,
+      updatedAt: archivedAt,
+      history: [...(session.history ?? [])],
+      lastResetReason: reason,
+    };
   }
 
   private async resolveAndValidate(baseDir: string, targetDir: string): Promise<string> {

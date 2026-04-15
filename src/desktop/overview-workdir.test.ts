@@ -223,13 +223,28 @@ describe("buildOverviewModel workdir semantics", () => {
       scopeDetail: "当前会话目录已覆盖默认工作区。",
     });
     expect(model.recentSessions).toHaveLength(2);
-    expect(model.recentSessions[1]).toMatchObject({
-      platformLabel: "QQ",
-      agentValue: "codex",
-      continuityLabel: "原生续接",
-      sessionId: "sess-qq-1",
-      isPrimary: false,
-    });
+    expect(model.recentSessions.map((session) => ({
+      platformLabel: session.platformLabel,
+      agentValue: session.agentValue,
+      continuityLabel: session.continuityLabel,
+      sessionId: session.sessionId,
+      isPrimary: session.isPrimary,
+    }))).toEqual([
+      {
+        platformLabel: "QQ",
+        agentValue: "codex",
+        continuityLabel: "原生续接",
+        sessionId: "sess-qq-1",
+        isPrimary: false,
+      },
+      {
+        platformLabel: "Telegram",
+        agentValue: "codex",
+        continuityLabel: "原生续接",
+        sessionId: "sess-telegram-2",
+        isPrimary: true,
+      },
+    ]);
   });
 
   it("falls back to the default route summary when no active session is present", () => {

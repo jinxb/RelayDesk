@@ -95,7 +95,7 @@ async function shutdownRuntime(options: {
   readonly shutdownServer: ReturnType<typeof createServer> | null;
   readonly mediaHookServer: RuntimeMediaHookServer | null;
   readonly keepAwakeLease: KeepAwakeLease;
-  readonly readyChannels: string[];
+  readonly readyChannels: Awaited<ReturnType<typeof startConfiguredChannels>>["readyChannels"];
   readonly handles: Awaited<ReturnType<typeof startConfiguredChannels>>["handles"];
   readonly sessionManager: SessionManager;
   readonly startedAt: number;
@@ -108,7 +108,10 @@ async function shutdownRuntime(options: {
   await options.mediaHookServer?.close();
   removePortFile();
   options.keepAwakeLease.release();
-  await stopConfiguredChannels(options.handles);
+  await stopConfiguredChannels({
+    activeChannels: options.readyChannels,
+    handles: options.handles,
+  });
   options.sessionManager.destroy();
   cleanupAdapters();
   flushActiveChats();
@@ -136,7 +139,10 @@ export async function runWorkerRuntime() {
   );
   if (failedChannels.length > 0) {
     await mediaHookServer.close();
-    await stopConfiguredChannels(handles);
+    await stopConfiguredChannels({
+      activeChannels: readyChannels,
+      handles,
+    });
     sessionManager.destroy();
     cleanupAdapters();
     throw new Error(buildStartupFailureMessage(failedChannels));

@@ -8,7 +8,12 @@ vi.mock("node:child_process", () => ({
   execFileSync: execFileSyncMock,
 }));
 
-import { resolveRuntimeWorkTree, validateWorkspace, workspaceUsedAgents } from "./workspace.js";
+import {
+  resolveRouteDefaultWorkDir,
+  resolveRuntimeWorkTree,
+  validateWorkspace,
+  workspaceUsedAgents,
+} from "./workspace.js";
 
 describe("workspaceUsedAgents", () => {
   beforeEach(() => {
@@ -172,6 +177,38 @@ describe("resolveRuntimeWorkTree", () => {
     });
 
     expect(workTree).toBe("/claude");
+  });
+
+  it("falls back to the user home directory when no workdir is configured", () => {
+    const originalHome = process.env.HOME;
+    process.env.HOME = "/tmp/home-fallback";
+
+    try {
+      expect(resolveRuntimeWorkTree({ aiCommand: "codex", tools: {}, platforms: {} })).toBe("/tmp/home-fallback");
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+    }
+  });
+});
+
+describe("resolveRouteDefaultWorkDir", () => {
+  it("returns the runtime fallback when the selected route has no configured workdir", () => {
+    const originalHome = process.env.HOME;
+    process.env.HOME = "/tmp/home-fallback";
+
+    try {
+      expect(resolveRouteDefaultWorkDir({ aiCommand: "codebuddy", tools: {}, platforms: {} }, "codebuddy")).toBe("/tmp/home-fallback");
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+    }
   });
 });
 

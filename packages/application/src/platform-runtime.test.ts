@@ -164,20 +164,23 @@ describe("platform runtime lifecycle notices", () => {
     const runtime = await import("./platform-runtime.js");
     await expect(
       runtime.stopConfiguredChannels({
-        telegramHandle: { id: "tg" } as never,
-        feishuHandle: { id: "fs" } as never,
-        qqHandle: { id: "qq" } as never,
-        wechatHandle: { id: "wx" } as never,
-        weworkHandle: { id: "ww" } as never,
-        dingtalkHandle: { id: "dt" } as never,
+        activeChannels: ["telegram", "qq", "dingtalk"],
+        handles: {
+          telegramHandle: { id: "tg" } as never,
+          feishuHandle: { id: "fs" } as never,
+          qqHandle: { id: "qq" } as never,
+          wechatHandle: { id: "wx" } as never,
+          weworkHandle: { id: "ww" } as never,
+          dingtalkHandle: { id: "dt" } as never,
+        },
       }),
     ).resolves.toBeUndefined();
 
     expect(stopTelegramChannelMock).toHaveBeenCalledTimes(1);
-    expect(stopFeishuChannelMock).toHaveBeenCalledTimes(1);
+    expect(stopFeishuChannelMock).not.toHaveBeenCalled();
     expect(stopQQChannelMock).toHaveBeenCalledTimes(1);
-    expect(stopWeChatChannelMock).toHaveBeenCalledTimes(1);
-    expect(stopWeComChannelMock).toHaveBeenCalledTimes(1);
+    expect(stopWeChatChannelMock).not.toHaveBeenCalled();
+    expect(stopWeComChannelMock).not.toHaveBeenCalled();
     expect(stopDingTalkChannelMock).toHaveBeenCalledTimes(1);
     expect(loggerErrorMock).toHaveBeenCalledWith(
       "Failed to stop qq channel:",

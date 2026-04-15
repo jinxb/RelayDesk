@@ -130,7 +130,10 @@ describe("worker runtime startup", () => {
     );
 
     expect(sessionClearAllMock).toHaveBeenCalledTimes(1);
-    expect(stopConfiguredChannelsMock).toHaveBeenCalledWith(handles);
+    expect(stopConfiguredChannelsMock).toHaveBeenCalledWith({
+      activeChannels: ["qq"],
+      handles,
+    });
     expect(sessionDestroyMock).toHaveBeenCalledTimes(1);
     expect(cleanupAdaptersMock).toHaveBeenCalledTimes(1);
     expect(publishOnlineNoticesMock).not.toHaveBeenCalled();

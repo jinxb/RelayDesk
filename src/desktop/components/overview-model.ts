@@ -87,6 +87,7 @@ export interface OverviewRecentSession {
   readonly sessionId: string;
   readonly updatedAtLabel: string;
   readonly isPrimary: boolean;
+  readonly updatedAtTs: number;
 }
 
 interface ScopedSessionIdentity {
@@ -96,6 +97,13 @@ interface ScopedSessionIdentity {
 }
 
 interface OverviewSessionRecord {
+  readonly updatedAt?: number;
+  readonly sessionIds?: Partial<Record<string, string>>;
+  readonly history?: Array<{ createdAt?: number }>;
+  readonly threads?: Record<string, OverviewThreadRecord>;
+}
+
+interface OverviewThreadRecord {
   readonly updatedAt?: number;
   readonly sessionIds?: Partial<Record<string, string>>;
   readonly history?: Array<{ createdAt?: number }>;
@@ -177,7 +185,9 @@ function effectiveAgentForIdentity(
 }
 
 function defaultWorkdir(studio: RelayDeskStudio) {
-  return resolvePreferredWorkdir(studio.snapshot.workspace)
+  const preferred = preferredChannel(studio);
+  return routeForChannel(studio, preferred.key)?.defaultWorkDir
+    || resolvePreferredWorkdir(studio.snapshot.workspace)
     || "未设置";
 }
 
@@ -596,9 +606,9 @@ function buildRecentSessions(studio: RelayDeskStudio): OverviewRecentSession[] {
   const sessions = studio.snapshot.bootstrap?.sessions.sessions ?? {};
 
   return Object.entries(sessions)
-    .map(([key, raw]) => {
+    .flatMap(([key, raw]) => {
       const identity = parseScopedSessionOwnerId(key);
-      if (!identity) return null;
+      if (!identity) return [];
       const record = raw as OverviewSessionRecord;
       const preferredAgent = effectiveAgentForIdentity(studio, identity);
       const sessionId = resolveSessionId(record, preferredAgent);
@@ -607,7 +617,7 @@ function buildRecentSessions(studio: RelayDeskStudio): OverviewRecentSession[] {
         && primaryRoute?.activeChatId === identity.chatId
         && (!primaryRoute?.activeUserId || primaryRoute.activeUserId === identity.userId);
 
-      return {
+      const primary = {
         key,
         platformLabel: channelDefinition(identity.platform).title,
         agentValue: preferredAgent,
@@ -617,16 +627,39 @@ function buildRecentSessions(studio: RelayDeskStudio): OverviewRecentSession[] {
           : (sessionId || "未建立"),
         updatedAtLabel: formatSessionUpdatedAt(record.updatedAt),
         isPrimary,
+        updatedAtTs: record.updatedAt ?? 0,
       } satisfies OverviewRecentSession;
+
+      const archived = Object.entries(record.threads ?? {}).map(([convId, thread]) => {
+        const archivedSessionId = resolveSessionId(thread, preferredAgent);
+        return {
+          key: `${key}#${convId}`,
+          platformLabel: channelDefinition(identity.platform).title,
+          agentValue: preferredAgent,
+          continuityLabel: continuityLabel({
+            sessionId: archivedSessionId,
+            historyCount: thread.history?.length ?? 0,
+          }),
+          sessionId: archivedSessionId || "未建立",
+          updatedAtLabel: formatSessionUpdatedAt(thread.updatedAt),
+          isPrimary: false,
+          updatedAtTs: thread.updatedAt ?? 0,
+        } satisfies OverviewRecentSession;
+      });
+
+      return [primary, ...archived];
     })
-    .filter((item): item is OverviewRecentSession => Boolean(item))
     .sort((left, right) => {
+      const delta = right.updatedAtTs - left.updatedAtTs;
+      if (delta !== 0) {
+        return delta;
+      }
+
       if (left.isPrimary !== right.isPrimary) {
         return left.isPrimary ? -1 : 1;
       }
-      const leftRecord = sessions[left.key] as OverviewSessionRecord | undefined;
-      const rightRecord = sessions[right.key] as OverviewSessionRecord | undefined;
-      return (rightRecord?.updatedAt ?? 0) - (leftRecord?.updatedAt ?? 0);
+
+      return left.key.localeCompare(right.key);
     })
     .slice(0, RECENT_SESSION_LIMIT);
 }

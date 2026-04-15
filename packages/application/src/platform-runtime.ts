@@ -67,6 +67,10 @@ export interface PlatformStartupFailure {
 }
 
 type LifecycleNoticeSender = (message: string) => Promise<void>;
+type StopChannelEntry = {
+  readonly channel: RuntimeChannel;
+  readonly stop: () => void | Promise<void>;
+};
 
 const log = createLogger("PlatformRuntime");
 
@@ -320,23 +324,43 @@ export async function startConfiguredChannels(
   return { handles, readyChannels, failedChannels };
 }
 
-export async function stopConfiguredChannels(handles: PlatformRuntimeHandles) {
-  await stopChannelWithLogging("telegram", () =>
-    stopTelegramChannel(handles.telegramHandle),
-  );
-  await stopChannelWithLogging("feishu", () =>
-    stopFeishuChannel(handles.feishuHandle),
-  );
-  await stopChannelWithLogging("qq", () => stopQQChannel(handles.qqHandle));
-  await stopChannelWithLogging("wechat", () =>
-    stopWeChatChannel(handles.wechatHandle),
-  );
-  await stopChannelWithLogging("wework", () =>
-    stopWeComChannel(handles.weworkHandle),
-  );
-  await stopChannelWithLogging("dingtalk", () =>
-    stopDingTalkChannel(handles.dingtalkHandle),
-  );
+export async function stopConfiguredChannels(options: {
+  readonly activeChannels: readonly RuntimeChannel[];
+  readonly handles: PlatformRuntimeHandles;
+}) {
+  const stopEntries: readonly StopChannelEntry[] = [
+    {
+      channel: "telegram",
+      stop: () => stopTelegramChannel(options.handles.telegramHandle),
+    },
+    {
+      channel: "feishu",
+      stop: () => stopFeishuChannel(options.handles.feishuHandle),
+    },
+    {
+      channel: "qq",
+      stop: () => stopQQChannel(options.handles.qqHandle),
+    },
+    {
+      channel: "wechat",
+      stop: () => stopWeChatChannel(options.handles.wechatHandle),
+    },
+    {
+      channel: "wework",
+      stop: () => stopWeComChannel(options.handles.weworkHandle),
+    },
+    {
+      channel: "dingtalk",
+      stop: () => stopDingTalkChannel(options.handles.dingtalkHandle),
+    },
+  ];
+
+  for (const entry of stopEntries) {
+    if (!options.activeChannels.includes(entry.channel)) {
+      continue;
+    }
+    await stopChannelWithLogging(entry.channel, entry.stop);
+  }
 }
 
 export async function publishOnlineNotices(

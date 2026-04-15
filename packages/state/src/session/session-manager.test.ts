@@ -159,4 +159,52 @@ describe("SessionManager scoped continuity", () => {
       continuityMode: "native",
     });
   });
+
+  it("archives the previous conversation when starting a new session", () => {
+    const manager = new SessionManager("/tmp/default");
+    const scopeId = buildScopedSessionOwnerId({
+      platform: "telegram",
+      chatId: "chat-1",
+      userId: "user-1",
+    });
+
+    manager.recordUserPrompt(scopeId, "old prompt");
+    manager.recordAssistantReply(scopeId, "old reply");
+    const previousConvId = manager.getConvId(scopeId);
+
+    expect(manager.newSession(scopeId)).toBe(true);
+
+    const raw = JSON.parse(writeFileSyncMock.mock.calls.at(-1)?.[1] as string) as Record<string, {
+      activeConvId?: string;
+      threads?: Record<string, { history?: Array<{ content?: string }> }>;
+    }>;
+    expect(raw[scopeId]?.activeConvId).not.toBe(previousConvId);
+    expect(raw[scopeId]?.threads?.[previousConvId]?.history).toHaveLength(2);
+  });
+
+  it("archives the previous conversation when changing workdir", async () => {
+    const manager = new SessionManager("/tmp/default");
+    const scopeId = buildScopedSessionOwnerId({
+      platform: "telegram",
+      chatId: "chat-1",
+      userId: "user-1",
+    });
+    existsSyncMock.mockImplementation((value: string) => value === "/tmp/default");
+
+    manager.recordUserPrompt(scopeId, "before cd");
+    manager.recordAssistantReply(scopeId, "reply before cd");
+    const previousConvId = manager.getConvId(scopeId);
+
+    await expect(manager.setWorkDir(scopeId, "/tmp/default")).resolves.toBe("/tmp/default");
+
+    const raw = JSON.parse(writeFileSyncMock.mock.calls.at(-1)?.[1] as string) as Record<string, {
+      activeConvId?: string;
+      threads?: Record<string, { workDir?: string; lastResetReason?: string }>;
+    }>;
+    expect(raw[scopeId]?.activeConvId).not.toBe(previousConvId);
+    expect(raw[scopeId]?.threads?.[previousConvId]).toMatchObject({
+      workDir: "/tmp/default",
+      lastResetReason: "workdir_changed",
+    });
+  });
 });

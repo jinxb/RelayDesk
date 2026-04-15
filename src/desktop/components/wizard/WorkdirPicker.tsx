@@ -49,7 +49,7 @@ export function WorkdirPicker({ studio }: WorkdirPickerProps) {
         <TextField.Root
           value={workdir}
           onChange={(event) => setWorkdir(studio, event.target.value)}
-          placeholder="/Users/you/work/project"
+          placeholder="留空则回退到当前用户主目录"
           size="3"
         />
       </Box>
@@ -70,7 +70,7 @@ export function WorkdirPicker({ studio }: WorkdirPickerProps) {
       </Flex>
 
       <Text size="2" color="gray">
-        这个目录会作为默认会话工作区，用于远程消息首次落地时的代码操作上下文。
+        这个目录会作为默认会话工作区；如果留空，运行时会回退到当前用户主目录。
       </Text>
     </Flex>
   );

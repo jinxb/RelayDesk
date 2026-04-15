@@ -23,6 +23,16 @@ interface SessionRecord {
   readonly lastResetReason?: string;
   readonly sessionIds?: Partial<Record<string, string>>;
   readonly history?: readonly SessionTurnRecord[];
+  readonly threads?: Record<string, SessionThreadRecord>;
+}
+
+interface SessionThreadRecord {
+  readonly workDir?: string;
+  readonly totalTurns?: number;
+  readonly updatedAt?: number;
+  readonly lastResetReason?: string;
+  readonly sessionIds?: Partial<Record<string, string>>;
+  readonly history?: readonly SessionTurnRecord[];
 }
 
 export interface SessionManagementTurn {
@@ -50,6 +60,7 @@ export interface SessionManagementEntry {
   readonly userId: string;
   readonly turnCount: number;
   readonly turns: readonly SessionManagementTurn[];
+  readonly updatedAtTs: number;
 }
 
 const SESSION_SCOPE_PREFIX = "scope";
@@ -84,8 +95,10 @@ function routeForChannel(studio: RelayDeskStudio, channelKey: ChannelKey) {
   return (studio.snapshot.bootstrap?.routes ?? []).find((route) => route.channel === channelKey);
 }
 
-function defaultWorkdir(studio: RelayDeskStudio) {
-  return resolvePreferredWorkdir(studio.snapshot.workspace) || "未设置";
+function defaultWorkdir(studio: RelayDeskStudio, channelKey: ChannelKey) {
+  return routeForChannel(studio, channelKey)?.defaultWorkDir
+    || resolvePreferredWorkdir(studio.snapshot.workspace)
+    || "未设置";
 }
 
 function resolveSessionId(record: SessionRecord, preferredAgent: string) {
@@ -200,7 +213,7 @@ function buildSessionEntry(studio: RelayDeskStudio, key: string, raw: unknown): 
     updatedAtLabel: formatRelativeTime(record.updatedAt),
     updatedAtFullLabel: formatAbsoluteTime(record.updatedAt),
     isPrimary,
-    workDir: record.workDir || route?.activeWorkDir || defaultWorkdir(studio),
+    workDir: record.workDir || route?.activeWorkDir || defaultWorkdir(studio, identity.platform),
     continuityLabel: continuityLabel(record, sessionId),
     activeConvId: record.activeConvId || "未建立",
     lastResetReasonLabel: formatResetReason(record.lastResetReason),
@@ -208,6 +221,38 @@ function buildSessionEntry(studio: RelayDeskStudio, key: string, raw: unknown): 
     userId: identity.userId,
     turnCount: record.totalTurns ?? record.history?.length ?? 0,
     turns: buildTurns(record),
+    updatedAtTs: record.updatedAt ?? 0,
+  };
+}
+
+function buildThreadEntry(
+  studio: RelayDeskStudio,
+  scopeKey: string,
+  identity: ScopedSessionIdentity,
+  convId: string,
+  thread: SessionThreadRecord,
+): SessionManagementEntry | null {
+  const preferredAgent = effectiveAgent(studio, identity.platform);
+  const sessionId = resolveSessionId(thread, preferredAgent);
+
+  return {
+    key: `${scopeKey}#${convId}`,
+    platformLabel: channelLabel(identity.platform),
+    agentValue: preferredAgent,
+    sessionId,
+    sessionIdLabel: buildSessionIdLabel(sessionId),
+    updatedAtLabel: formatRelativeTime(thread.updatedAt),
+    updatedAtFullLabel: formatAbsoluteTime(thread.updatedAt),
+    isPrimary: false,
+    workDir: thread.workDir || defaultWorkdir(studio, identity.platform),
+    continuityLabel: continuityLabel(thread, sessionId),
+    activeConvId: convId,
+    lastResetReasonLabel: formatResetReason(thread.lastResetReason),
+    chatId: identity.chatId,
+    userId: identity.userId,
+    turnCount: thread.totalTurns ?? thread.history?.length ?? 0,
+    turns: buildTurns(thread),
+    updatedAtTs: thread.updatedAt ?? 0,
   };
 }
 
@@ -215,15 +260,35 @@ export function buildSessionManagementEntries(studio: RelayDeskStudio) {
   const sessions = studio.snapshot.bootstrap?.sessions.sessions ?? {};
 
   return Object.entries(sessions)
-    .map(([key, raw]) => buildSessionEntry(studio, key, raw))
+    .flatMap(([key, raw]) => {
+      const primary = buildSessionEntry(studio, key, raw);
+      if (!primary) {
+        return [];
+      }
+
+      const identity = parseScopedSessionOwnerId(key);
+      if (!identity) {
+        return [primary];
+      }
+
+      const record = raw as SessionRecord;
+      const archived = Object.entries(record.threads ?? {})
+        .map(([convId, thread]) => buildThreadEntry(studio, key, identity, convId, thread))
+        .filter((item): item is SessionManagementEntry => Boolean(item));
+
+      return [primary, ...archived];
+    })
     .filter((item): item is SessionManagementEntry => Boolean(item))
     .sort((left, right) => {
+      const delta = right.updatedAtTs - left.updatedAtTs;
+      if (delta !== 0) {
+        return delta;
+      }
+
       if (left.isPrimary !== right.isPrimary) {
         return left.isPrimary ? -1 : 1;
       }
 
-      const leftSource = sessions[left.key] as SessionRecord | undefined;
-      const rightSource = sessions[right.key] as SessionRecord | undefined;
-      return (rightSource?.updatedAt ?? 0) - (leftSource?.updatedAt ?? 0);
+      return left.key.localeCompare(right.key);
     });
 }

@@ -4,7 +4,7 @@ import {
   type FileConfig,
   type Platform,
 } from "../../state/src/index.js";
-import { knownChannels } from "./workspace.js";
+import { knownChannels, resolveRouteDefaultWorkDir } from "./workspace.js";
 
 export interface RuntimeRouteSummary {
   readonly channel: Platform;
@@ -55,19 +55,6 @@ function routeAnchor(
     }
   }
   return undefined;
-}
-
-function defaultWorkDirForAgent(
-  workspace: FileConfig,
-  aiCommand: string,
-): string {
-  if (aiCommand === "claude") {
-    return workspace.tools?.claude?.workDir?.trim() ?? "";
-  }
-  if (aiCommand === "codex") {
-    return workspace.tools?.codex?.workDir?.trim() ?? "";
-  }
-  return "";
 }
 
 function activeSessionRecord(input: {
@@ -130,7 +117,7 @@ export function buildRuntimeRouteSummaries(input: {
       (platform?.aiCommand as string | undefined)
       ?? (input.workspace.aiCommand as string | undefined)
       ?? "claude";
-    const defaultWorkDir = defaultWorkDirForAgent(input.workspace, aiCommand);
+    const defaultWorkDir = resolveRouteDefaultWorkDir(input.workspace, aiCommand);
     const active = routeAnchor(input.activeChats, channel);
     const activeWorkDir = activeSessionRecord({
       channel,
