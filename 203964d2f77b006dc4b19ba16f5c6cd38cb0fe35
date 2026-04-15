@@ -1,0 +1,51 @@
+src/desktop/components/session-management-model.ts
+  ad6f492b86be2c5b 26,29-35,63,98-101,216,224-255,263-280,283-287,292
+packages/application/src/runtime-route-summaries.ts
+  ad6f492b86be2c5b 7,120
+src/desktop/components/overview-model.ts
+  ad6f492b86be2c5b 90,103,106-109,188-190,609,611,620,630,632-650,653-657,661-662
+packages/state/src/session/session-manager.test.ts
+  ad6f492b86be2c5b 162-209
+packages/application/src/platform-runtime.test.ts
+  ad6f492b86be2c5b 167-175,180,182-183
+packages/application/src/platform-runtime.ts
+  ad6f492b86be2c5b 70-73,327-363
+packages/application/src/workspace.ts
+  ad6f492b86be2c5b 36-70,179-180
+packages/state/src/session/session-manager.ts
+  ad6f492b86be2c5b 35-38,445,459-483
+src/desktop/overview-workdir.test.ts
+  ad6f492b86be2c5b 226-247
+packages/application/src/worker-runtime.ts
+  ad6f492b86be2c5b 98,111-114,142-145
+src/desktop/components/wizard/WorkdirPicker.tsx
+  ad6f492b86be2c5b 52,73
+src/desktop/session-history-visibility.test.ts
+  ad6f492b86be2c5b 1-219
+packages/application/src/worker-runtime.test.ts
+  ad6f492b86be2c5b 133-136
+packages/application/src/workspace.test.ts
+  ad6f492b86be2c5b 11-16,181-211
+src/desktop/components/RouteStudioView.tsx
+  ad6f492b86be2c5b 34-36,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "203964d2f77b006dc4b19ba16f5c6cd38cb0fe35",
+  "prompts": {
+    "ad6f492b86be2c5b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5160-0c12-7232-aa13-055219b649b0",
+        "model": "gpt-5.4"
+      },
+      "human_author": "jinxb",
+      "messages": [],
+      "total_additions": 583,
+      "total_deletions": 86,
+      "accepted_lines": 583,
+      "overriden_lines": 0
+    }
+  }
+}
