@@ -1,0 +1,41 @@
+packages/channels/package.json
+  ad6f492b86be2c5b 3
+package.json
+  ad6f492b86be2c5b 3
+packages/application/package.json
+  ad6f492b86be2c5b 3
+packages/agents/package.json
+  ad6f492b86be2c5b 3
+packages/runtime/package.json
+  ad6f492b86be2c5b 3
+packages/desktop-api/package.json
+  ad6f492b86be2c5b 3
+packages/state/package.json
+  ad6f492b86be2c5b 3
+src-tauri/Cargo.toml
+  ad6f492b86be2c5b 3
+packages/interaction/package.json
+  ad6f492b86be2c5b 3
+src-tauri/tauri.conf.json
+  ad6f492b86be2c5b 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "e343e3ad8d676bc224b3e4eb184e19fa4ce54805",
+  "prompts": {
+    "ad6f492b86be2c5b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5160-0c12-7232-aa13-055219b649b0",
+        "model": "gpt-5.4"
+      },
+      "human_author": "jinxb",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 10,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}
