@@ -9,16 +9,56 @@ vi.mock("node:child_process", () => ({
 }));
 
 import {
-  resolveRouteDefaultWorkDir,
-  resolveRuntimeWorkTree,
-  validateWorkspace,
-  workspaceUsedAgents,
+  resetCodexCliCachesForTests,
+} from "../../agents/src/codex/cli-runner.js";
+import {
+  resolveRouteDefaultWorkDir as resolveRouteDefaultWorkDirFromWorkspace,
+  resolveRuntimeWorkTree as resolveRuntimeWorkTreeFromWorkspace,
+  validateWorkspace as validateWorkspaceFromWorkspace,
+  workspaceUsedAgents as workspaceUsedAgentsFromWorkspace,
 } from "./workspace.js";
+
+const resolveRouteDefaultWorkDir = resolveRouteDefaultWorkDirFromWorkspace;
+const resolveRuntimeWorkTree = resolveRuntimeWorkTreeFromWorkspace;
+const validateWorkspace = validateWorkspaceFromWorkspace;
+const workspaceUsedAgents = workspaceUsedAgentsFromWorkspace;
+
+function mockCodexCli(options?: {
+  readonly fullAuto?: boolean;
+}) {
+  const globalHelp = [
+    "--cd",
+    options?.fullAuto === false ? null : "--full-auto",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--sandbox",
+    "--model",
+    "--image",
+  ].filter(Boolean).join("\n");
+  const execHelp = [
+    "--json",
+    "--skip-git-repo-check",
+    "If `-` is used, read from stdin.",
+  ].join("\n");
+
+  execFileSyncMock.mockImplementation((command: string, args: string[]) => {
+    if (command === "which" || command === "where") {
+      return Buffer.from("/usr/bin/codex");
+    }
+    if (args[0] === "--help") {
+      return Buffer.from(globalHelp);
+    }
+    if (args[0] === "exec" && args[1] === "--help") {
+      return Buffer.from(execHelp);
+    }
+    return Buffer.from("/usr/bin/codex");
+  });
+}
 
 describe("workspaceUsedAgents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+    resetCodexCliCachesForTests();
+    mockCodexCli();
   });
 
   it("ignores AI overrides on disabled channels", () => {
@@ -48,7 +88,8 @@ describe("workspaceUsedAgents", () => {
 describe("validateWorkspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+    resetCodexCliCachesForTests();
+    mockCodexCli();
   });
 
   it("does not require Claude credentials when only disabled channels override Claude", () => {
@@ -148,12 +189,37 @@ describe("validateWorkspace", () => {
     expect(result.requiredChannels).toEqual(["telegram", "wechat"]);
     expect(result.issues).toEqual([]);
   });
+
+  it("surfaces Codex CLI compatibility issues instead of generic path errors", () => {
+    mockCodexCli({ fullAuto: false });
+
+    const result = validateWorkspace(
+      {
+        aiCommand: "codex",
+        tools: {
+          codex: { cliPath: "codex" },
+        },
+        platforms: {
+          telegram: {
+            enabled: true,
+            botToken: "token",
+          },
+        },
+      },
+      {},
+    );
+
+    expect(result.issues).toContain(
+      "当前 Codex CLI 与 RelayDesk 不兼容，缺少：--full-auto",
+    );
+  });
 });
 
 describe("resolveRuntimeWorkTree", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+    resetCodexCliCachesForTests();
+    mockCodexCli();
   });
 
   it("prefers the selected default agent workdir", () => {
@@ -215,7 +281,8 @@ describe("resolveRouteDefaultWorkDir", () => {
 describe("normalizeWorkspaceConfig", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    execFileSyncMock.mockReturnValue(Buffer.from("/usr/bin/codex"));
+    resetCodexCliCachesForTests();
+    mockCodexCli();
   });
 
   it("keeps runtime keep-awake disabled by default", async () => {

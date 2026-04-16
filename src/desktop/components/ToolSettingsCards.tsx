@@ -303,11 +303,17 @@ export function ToolSettingsCards({ studio }: ToolSettingsCardsProps) {
   const [activeDialog, setActiveDialog] = useState<ToolKey | null>(null);
   const selected = (studio.snapshot.workspace.aiCommand ?? "claude") as ToolKey;
   const stats = routeStats(studio);
+  const diagnostics = studio.snapshot.bootstrap?.diagnostics;
+  const codexSummary = !diagnostics?.codexReady
+    ? (diagnostics?.codexIssue ?? "终端执行与代码修改")
+    : diagnostics.codexLongPromptReady === false
+      ? (diagnostics.codexIssue ?? "基础请求可用，长输入需要升级 CLI")
+      : "终端执行与代码修改";
 
   const tools: ToolInfo[] = [
-    { key: "claude", title: "Claude", summary: "通用协作与长上下文", ready: Boolean(studio.snapshot.bootstrap?.diagnostics?.claudeReady) },
-    { key: "codex", title: "Codex", summary: "终端执行与代码修改", ready: Boolean(studio.snapshot.bootstrap?.diagnostics?.codexReady) },
-    { key: "codebuddy", title: "CodeBuddy", summary: "低频备用与补位", ready: Boolean(studio.snapshot.bootstrap?.diagnostics?.codebuddyReady) },
+    { key: "claude", title: "Claude", summary: "通用协作与长上下文", ready: Boolean(diagnostics?.claudeReady) },
+    { key: "codex", title: "Codex", summary: codexSummary, ready: Boolean(diagnostics?.codexReady) },
+    { key: "codebuddy", title: "CodeBuddy", summary: "低频备用与补位", ready: Boolean(diagnostics?.codebuddyReady) },
   ];
 
   return (

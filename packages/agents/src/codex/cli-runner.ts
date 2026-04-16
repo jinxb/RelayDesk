@@ -17,6 +17,10 @@ import {
 const log = createLogger('CodexCli');
 const windowsCodexLaunchCache = new Map<string, { command: string; args: string[] } | null>();
 const posixCodexLaunchCache = new Map<string, { command: string; args: string[] } | null>();
+const stdinDashSupportCache = new Map<string, boolean>();
+const codexCliInspectionCache = new Map<string, CodexCliInspection>();
+const INLINE_PROMPT_CHAR_LIMIT = 24_000;
+const WINDOWS_SHELL_INLINE_PROMPT_CHAR_LIMIT = 7_000;
 const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.png',
   '.jpg',
@@ -80,6 +84,37 @@ export interface CodexRunOptions {
 
 export interface CodexRunHandle {
   abort: () => void;
+}
+
+export type CodexPromptTransport = 'argv' | 'stdin-dash';
+
+export interface CodexLaunchSpec {
+  readonly args: string[];
+  readonly promptTransport: CodexPromptTransport;
+  readonly stdinPayload?: string;
+}
+
+export interface CodexCliInspection {
+  readonly commandReady: boolean;
+  readonly relaydeskCompatible: boolean;
+  readonly supportsStdinDashPrompt: boolean | null;
+  readonly supportsSkipGitRepoCheck: boolean | null;
+  readonly supportsCd: boolean | null;
+  readonly supportsFullAuto: boolean | null;
+  readonly supportsDangerousBypass: boolean | null;
+  readonly supportsSandbox: boolean | null;
+  readonly supportsModel: boolean | null;
+  readonly supportsImage: boolean | null;
+  readonly supportsExecJson: boolean | null;
+  readonly inlinePromptCharLimit: number;
+  readonly issue: string | null;
+}
+
+export function resetCodexCliCachesForTests(): void {
+  windowsCodexLaunchCache.clear();
+  posixCodexLaunchCache.clear();
+  stdinDashSupportCache.clear();
+  codexCliInspectionCache.clear();
 }
 
 function parseCodexEvent(line: string): Record<string, unknown> | null {
@@ -170,40 +205,66 @@ export function buildCodexArgs(
   sessionId: string | undefined,
   workDir: string,
   options?: CodexRunOptions,
+  promptArg: string = prompt,
+  inspection?: CodexCliInspection,
 ): string[] {
-  const commonOptions = ['--json', '--skip-git-repo-check'];
-  const newSessionOptions = [...commonOptions, '--cd', workDir];
-  const resumeOptions = [...commonOptions];
+  if (inspection?.supportsExecJson === false) {
+    throw new Error('当前 Codex CLI 不支持 `codex exec --json`，RelayDesk 无法解析结构化事件流。');
+  }
+  if (inspection?.supportsCd === false) {
+    throw new Error('当前 Codex CLI 不支持全局 `--cd` 参数，RelayDesk 无法稳定设置工作目录。');
+  }
+
+  const execOptions = ['--json'];
+  if (inspection?.supportsSkipGitRepoCheck === false) {
+    log.warn('Codex CLI does not support --skip-git-repo-check; RelayDesk will run without this compatibility flag');
+  } else {
+    execOptions.push('--skip-git-repo-check');
+  }
+
+  const globalOptions = ['--cd', workDir];
   const canResume = Boolean(sessionId) && options?.permissionMode !== 'plan';
   const imagePaths = extractPromptImagePaths(prompt);
 
   if (options?.skipPermissions) {
-    newSessionOptions.push('--dangerously-bypass-approvals-and-sandbox');
-    resumeOptions.push('--dangerously-bypass-approvals-and-sandbox');
+    if (inspection?.supportsDangerousBypass === false) {
+      throw new Error('当前 Codex CLI 不支持 `--dangerously-bypass-approvals-and-sandbox`，无法按 RelayDesk 的免确认模式运行。');
+    }
+    globalOptions.push('--dangerously-bypass-approvals-and-sandbox');
   } else if (options?.permissionMode === 'plan') {
-    newSessionOptions.push('--sandbox', 'read-only');
+    if (inspection?.supportsSandbox === false) {
+      throw new Error('当前 Codex CLI 不支持 `--sandbox read-only`，无法启动 RelayDesk 的 plan 模式。');
+    }
+    globalOptions.push('--sandbox', 'read-only');
   } else {
-    newSessionOptions.push('--full-auto');
-    resumeOptions.push('--full-auto');
+    if (inspection?.supportsFullAuto === false) {
+      throw new Error('当前 Codex CLI 不支持 `--full-auto`，无法按 RelayDesk 的默认自动执行模式运行。');
+    }
+    globalOptions.push('--full-auto');
   }
 
   if (options?.model) {
-    newSessionOptions.push('--model', options.model);
-    resumeOptions.push('--model', options.model);
+    if (inspection?.supportsModel === false) {
+      throw new Error('当前 Codex CLI 不支持 `--model` 参数，但 RelayDesk 收到了模型覆盖请求。');
+    }
+    globalOptions.push('--model', options.model);
   }
 
   for (const imagePath of imagePaths) {
-    newSessionOptions.push('--image', imagePath);
-    resumeOptions.push('--image', imagePath);
+    if (inspection?.supportsImage === false) {
+      throw new Error('当前 Codex CLI 不支持 `--image` 参数，无法处理带图片附件的 Codex 请求。');
+    }
+    globalOptions.push('--image', imagePath);
   }
 
   if (sessionId && !canResume) {
     log.warn('Codex plan mode does not support resume; starting a new read-only session');
   }
 
+  const promptParts = promptArg.trim() ? [promptArg] : [];
   return canResume
-    ? ['exec', 'resume', ...resumeOptions, sessionId!, '-']
-    : ['exec', ...newSessionOptions, '-'];
+    ? [...globalOptions, 'exec', 'resume', ...execOptions, sessionId!, ...promptParts]
+    : [...globalOptions, 'exec', ...execOptions, ...promptParts];
 }
 
 function quoteForWindowsCmd(arg: string): string {
@@ -231,6 +292,27 @@ function extractCodexJsFromCmdShim(cmdPath: string): string | null {
     if (!match) return null;
     const relativeJsPath = match[1].replace(/\\/g, '/');
     return join(dirname(cmdPath), relativeJsPath);
+  } catch {
+    return null;
+  }
+}
+
+function resolveWindowsCmdShimPath(cliPath: string): string | null {
+  if (/\.(cmd|bat)$/i.test(cliPath) && existsSync(cliPath)) {
+    return cliPath;
+  }
+
+  try {
+    const whereOutput = execFileSync('where', [cliPath], {
+      stdio: 'pipe',
+      windowsHide: true,
+    })
+      .toString()
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return whereOutput.find((line) => /\.cmd$/i.test(line)) ?? null;
   } catch {
     return null;
   }
@@ -283,16 +365,7 @@ function resolveWindowsCodexLaunch(
   }
 
   try {
-    const whereOutput = execFileSync('where', [cliPath], {
-      stdio: 'pipe',
-      windowsHide: true,
-    })
-      .toString()
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    const cmdShimPath = whereOutput.find((line) => /\.cmd$/i.test(line)) ?? null;
+    const cmdShimPath = resolveWindowsCmdShimPath(cliPath);
     if (!cmdShimPath) {
       windowsCodexLaunchCache.set(cliPath, null);
       return null;
@@ -316,6 +389,275 @@ function resolveWindowsCodexLaunch(
   }
 }
 
+function resolveCodexSpawnPlan(
+  cliPath: string,
+  args: string[],
+): { command: string; args: string[]; usesWindowsShell: boolean } {
+  const isWinCmd =
+    process.platform === 'win32' &&
+    (/\.(cmd|bat)$/i.test(cliPath) || cliPath === 'codex');
+  const isPosixShim =
+    process.platform !== 'win32' &&
+    (isAbsolute(cliPath) || cliPath.includes('/'));
+  const directWindowsLaunch = isWinCmd ? resolveWindowsCodexLaunch(cliPath, args) : null;
+  const directPosixLaunch =
+    !directWindowsLaunch && isPosixShim ? resolvePosixCodexLaunch(cliPath, args) : null;
+
+  if (directWindowsLaunch) {
+    return {
+      command: directWindowsLaunch.command,
+      args: directWindowsLaunch.args,
+      usesWindowsShell: false,
+    };
+  }
+
+  if (directPosixLaunch) {
+    return {
+      command: directPosixLaunch.command,
+      args: directPosixLaunch.args,
+      usesWindowsShell: false,
+    };
+  }
+
+  if (isWinCmd) {
+    return {
+      command: 'cmd.exe',
+      args: [
+        '/d',
+        '/s',
+        '/c',
+        `chcp 65001>nul && ${formatWindowsCommandName(cliPath)} ${args.map(quoteForWindowsCmd).join(' ')}`,
+      ],
+      usesWindowsShell: true,
+    };
+  }
+
+  return {
+    command: cliPath,
+    args,
+    usesWindowsShell: false,
+  };
+}
+
+function readHelpTextOutput(
+  cliPath: string,
+  args: string[],
+): { text: string; unavailable: boolean } {
+  const plan = resolveCodexSpawnPlan(cliPath, args);
+  try {
+    return {
+      text: execFileSync(plan.command, plan.args, {
+        stdio: 'pipe',
+        windowsHide: process.platform === 'win32',
+      }).toString(),
+      unavailable: false,
+    };
+  } catch (error) {
+    const failure = error as {
+      stdout?: Buffer | string;
+      stderr?: Buffer | string;
+      code?: string;
+    };
+    if (failure.code === 'ENOENT') {
+      return { text: '', unavailable: true };
+    }
+    const stdout = failure.stdout ? String(failure.stdout) : '';
+    const stderr = failure.stderr ? String(failure.stderr) : '';
+    return {
+      text: `${stdout}\n${stderr}`.trim(),
+      unavailable: false,
+    };
+  }
+}
+
+function supportsStdinDashPrompt(cliPath: string): boolean | null {
+  if (stdinDashSupportCache.has(cliPath)) {
+    return stdinDashSupportCache.get(cliPath) ?? false;
+  }
+
+  const helpOutput = readHelpTextOutput(cliPath, ['exec', '--help']);
+  if (helpOutput.unavailable) {
+    return null;
+  }
+  const supported =
+    /read from stdin/i.test(helpOutput.text)
+    || /if [`'"]?-[`'"]? is used/i.test(helpOutput.text);
+
+  stdinDashSupportCache.set(cliPath, supported);
+  return supported;
+}
+
+function inlinePromptCharLimit(cliPath: string): number {
+  const plan = resolveCodexSpawnPlan(cliPath, []);
+  return plan.usesWindowsShell
+    ? WINDOWS_SHELL_INLINE_PROMPT_CHAR_LIMIT
+    : INLINE_PROMPT_CHAR_LIMIT;
+}
+
+function commandExists(cliPath: string): boolean {
+  const candidate = cliPath.trim();
+  if (!candidate) return false;
+
+  if (
+    (process.platform === 'win32' && /\.(cmd|bat)$/i.test(candidate))
+    || isAbsolute(candidate)
+    || candidate.includes('/')
+    || candidate.includes('\\')
+  ) {
+    return existsSync(candidate) || resolveWindowsCmdShimPath(candidate) !== null;
+  }
+
+  const resolver = process.platform === 'win32' ? 'where' : 'which';
+  try {
+    execFileSync(resolver, [candidate], {
+      stdio: 'pipe',
+      windowsHide: process.platform === 'win32',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function helpSupportsOption(helpText: string, option: string): boolean {
+  return helpText.includes(option);
+}
+
+export function inspectCodexCli(cliPath: string): CodexCliInspection {
+  if (codexCliInspectionCache.has(cliPath)) {
+    return codexCliInspectionCache.get(cliPath)!;
+  }
+
+  const inlineLimit = inlinePromptCharLimit(cliPath);
+  if (!commandExists(cliPath)) {
+    const inspection: CodexCliInspection = {
+      commandReady: false,
+      relaydeskCompatible: false,
+      supportsStdinDashPrompt: null,
+      supportsSkipGitRepoCheck: null,
+      supportsCd: null,
+      supportsFullAuto: null,
+      supportsDangerousBypass: null,
+      supportsSandbox: null,
+      supportsModel: null,
+      supportsImage: null,
+      supportsExecJson: null,
+      inlinePromptCharLimit: inlineLimit,
+      issue: `Codex CLI 不可执行：${cliPath}`,
+    };
+    codexCliInspectionCache.set(cliPath, inspection);
+    return inspection;
+  }
+
+  const globalHelp = readHelpTextOutput(cliPath, ['--help']);
+  const execHelp = readHelpTextOutput(cliPath, ['exec', '--help']);
+  if (globalHelp.unavailable || execHelp.unavailable) {
+    const inspection: CodexCliInspection = {
+      commandReady: true,
+      relaydeskCompatible: false,
+      supportsStdinDashPrompt: null,
+      supportsSkipGitRepoCheck: null,
+      supportsCd: null,
+      supportsFullAuto: null,
+      supportsDangerousBypass: null,
+      supportsSandbox: null,
+      supportsModel: null,
+      supportsImage: null,
+      supportsExecJson: null,
+      inlinePromptCharLimit: inlineLimit,
+      issue: '无法读取 Codex CLI 帮助信息，RelayDesk 不能确认当前版本是否兼容。',
+    };
+    codexCliInspectionCache.set(cliPath, inspection);
+    return inspection;
+  }
+
+  const supportsCd = helpSupportsOption(globalHelp.text, '--cd');
+  const supportsFullAuto = helpSupportsOption(globalHelp.text, '--full-auto');
+  const supportsDangerousBypass = helpSupportsOption(
+    globalHelp.text,
+    '--dangerously-bypass-approvals-and-sandbox',
+  );
+  const supportsSandbox = helpSupportsOption(globalHelp.text, '--sandbox');
+  const supportsModel = helpSupportsOption(globalHelp.text, '--model');
+  const supportsImage = helpSupportsOption(globalHelp.text, '--image');
+  const supportsExecJson = helpSupportsOption(execHelp.text, '--json');
+  const supportsSkipGitRepoCheck = helpSupportsOption(execHelp.text, '--skip-git-repo-check');
+  const stdinSupport = supportsStdinDashPrompt(cliPath);
+  const incompatibilities: string[] = [];
+
+  if (!supportsCd) incompatibilities.push('--cd');
+  if (!supportsFullAuto) incompatibilities.push('--full-auto');
+  if (!supportsDangerousBypass) incompatibilities.push('--dangerously-bypass-approvals-and-sandbox');
+  if (!supportsSandbox) incompatibilities.push('--sandbox');
+  if (!supportsExecJson) incompatibilities.push('exec --json');
+
+  const inspection: CodexCliInspection = {
+    commandReady: true,
+    relaydeskCompatible: incompatibilities.length === 0,
+    supportsStdinDashPrompt: stdinSupport,
+    supportsSkipGitRepoCheck,
+    supportsCd,
+    supportsFullAuto,
+    supportsDangerousBypass,
+    supportsSandbox,
+    supportsModel,
+    supportsImage,
+    supportsExecJson,
+    inlinePromptCharLimit: inlineLimit,
+    issue: incompatibilities.length
+      ? `当前 Codex CLI 与 RelayDesk 不兼容，缺少：${incompatibilities.join('、')}`
+      : null,
+  };
+  codexCliInspectionCache.set(cliPath, inspection);
+  return inspection;
+}
+
+export function buildCodexLaunchSpec(
+  cliPath: string,
+  prompt: string,
+  sessionId: string | undefined,
+  workDir: string,
+  options?: CodexRunOptions,
+): CodexLaunchSpec {
+  const inspection = inspectCodexCli(cliPath);
+  if (!inspection.commandReady || !inspection.relaydeskCompatible) {
+    throw new Error(inspection.issue ?? `Codex CLI 不可用：${cliPath}`);
+  }
+
+  if (!prompt.trim()) {
+    return {
+      args: buildCodexArgs(prompt, sessionId, workDir, options, '', inspection),
+      promptTransport: 'argv',
+    };
+  }
+
+  if (prompt.length <= inspection.inlinePromptCharLimit) {
+    return {
+      args: buildCodexArgs(prompt, sessionId, workDir, options, prompt, inspection),
+      promptTransport: 'argv',
+    };
+  }
+
+  const stdinDashSupported = inspection.supportsStdinDashPrompt;
+  if (stdinDashSupported === null) {
+    throw new Error(
+      `无法检测 Codex CLI 是否支持 stdin prompt，请先确认 CLI 路径可执行：${cliPath}`,
+    );
+  }
+
+  if (stdinDashSupported) {
+    return {
+      args: buildCodexArgs(prompt, sessionId, workDir, options, '-', inspection),
+      promptTransport: 'stdin-dash',
+      stdinPayload: prompt,
+    };
+  }
+
+  throw new Error(
+    '当前 Codex CLI 不支持使用 `-` 从 stdin 读取 prompt，且本次输入过长，无法安全以内联参数传递。请升级 Codex CLI，或缩短输入后重试。',
+  );
+}
+
 export function runCodex(
   cliPath: string,
   prompt: string,
@@ -324,7 +666,8 @@ export function runCodex(
   callbacks: CodexRunCallbacks,
   options?: CodexRunOptions,
 ): CodexRunHandle {
-  const args = buildCodexArgs(prompt, sessionId, workDir, options);
+  const launchSpec = buildCodexLaunchSpec(cliPath, prompt, sessionId, workDir, options);
+  const args = launchSpec.args;
 
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
@@ -347,36 +690,13 @@ export function runCodex(
   }
 
   const argsForLog = args.join(' ');
-  log.info(`Spawning Codex CLI: path=${cliPath}, cwd=${workDir}, session=${sessionId ?? 'new'}, args=${argsForLog}`);
+  log.info(
+    `Spawning Codex CLI: path=${cliPath}, cwd=${workDir}, session=${sessionId ?? 'new'}, transport=${launchSpec.promptTransport}, args=${argsForLog}`,
+  );
 
-  const isWinCmd =
-    process.platform === 'win32' &&
-    (/\.(cmd|bat)$/i.test(cliPath) || cliPath === 'codex');
-  const isPosixShim =
-    process.platform !== 'win32' &&
-    (isAbsolute(cliPath) || cliPath.includes('/'));
-  const directWindowsLaunch = isWinCmd ? resolveWindowsCodexLaunch(cliPath, args) : null;
-  const directPosixLaunch =
-    !directWindowsLaunch && isPosixShim ? resolvePosixCodexLaunch(cliPath, args) : null;
-  const spawnCmd = directWindowsLaunch
-    ? directWindowsLaunch.command
-    : directPosixLaunch
-      ? directPosixLaunch.command
-    : isWinCmd
-      ? 'cmd.exe'
-      : cliPath;
-  const spawnArgs = directWindowsLaunch
-    ? directWindowsLaunch.args
-    : directPosixLaunch
-      ? directPosixLaunch.args
-    : isWinCmd
-      ? [
-          '/d',
-          '/s',
-          '/c',
-          `chcp 65001>nul && ${formatWindowsCommandName(cliPath)} ${args.map(quoteForWindowsCmd).join(' ')}`,
-        ]
-      : args;
+  const spawnPlan = resolveCodexSpawnPlan(cliPath, args);
+  const spawnCmd = spawnPlan.command;
+  const spawnArgs = spawnPlan.args;
 
   const child = spawn(spawnCmd, spawnArgs, {
     cwd: workDir,
@@ -385,7 +705,9 @@ export function runCodex(
     windowsHide: process.platform === 'win32',
   });
 
-  child.stdin?.write(prompt);
+  if (launchSpec.promptTransport === 'stdin-dash' && launchSpec.stdinPayload) {
+    child.stdin?.write(launchSpec.stdinPayload);
+  }
   child.stdin?.end();
 
   let accumulated = '';

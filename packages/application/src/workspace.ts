@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { accessSync, constants, existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { inspectCodexCli } from "../../agents/src/codex/cli-runner.js";
 import type { FileConfig } from "../../state/src/index.js";
 import {
   getWeChatConfigIssue,
@@ -334,9 +335,16 @@ export function validateWorkspace(
 
     if (
       agent === "codex" &&
-      !commandReady(normalized.tools?.codex?.cliPath ?? "codex")
+      !inspectCodexCli(normalized.tools?.codex?.cliPath ?? "codex").commandReady
     ) {
       issues.push("Codex route selected but the CLI path cannot be resolved.");
+    }
+
+    if (agent === "codex") {
+      const inspection = inspectCodexCli(normalized.tools?.codex?.cliPath ?? "codex");
+      if (inspection.commandReady && !inspection.relaydeskCompatible) {
+        issues.push(inspection.issue ?? "Codex route selected but the CLI is incompatible with RelayDesk.");
+      }
     }
 
     if (

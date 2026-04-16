@@ -155,8 +155,10 @@ export function buildToolReadiness(snapshot: StudioSnapshot) {
       agent: "codex" as const,
       ready: toolReady("codex", snapshot),
       detail: snapshot.bootstrap?.diagnostics.codexReady
-        ? "Codex 已可以直接使用。"
-        : "Codex 仍缺少 CLI 或本机授权。",
+        ? snapshot.bootstrap?.diagnostics.codexLongPromptReady === false
+          ? "Codex 已可直接使用，但长 prompt 需要升级 CLI。"
+          : "Codex 已可以直接使用。"
+        : snapshot.bootstrap?.diagnostics.codexIssue ?? "Codex 仍缺少 CLI 或本机授权。",
     },
     {
       agent: "codebuddy" as const,

@@ -10,6 +10,7 @@ import { getChannelHealthSnapshot } from "./channel-health.js";
 import { buildChannelProbeSnapshots } from "./channel-probe-results.js";
 import { readJournalExcerpt } from "./journal.js";
 import { buildRuntimeRouteSummaries } from "./runtime-route-summaries.js";
+import { inspectCodexCli } from "../../agents/src/codex/cli-runner.js";
 import {
   commandReady,
   findCodexAuth,
@@ -45,6 +46,24 @@ export function buildDiagnostics(
 ) {
   const normalized = normalizeWorkspaceConfig(workspace);
   const logDir = normalized.logDir || join(APP_HOME, "logs");
+  const codexCliPath = normalized.tools?.codex?.cliPath ?? "codex";
+  const codexInspection = inspectCodexCli(codexCliPath);
+  const codexAuthReady = findCodexAuth();
+  const codexReady =
+    codexInspection.commandReady &&
+    codexInspection.relaydeskCompatible &&
+    codexAuthReady;
+  const codexLongPromptReady =
+    codexReady &&
+    codexInspection.supportsStdinDashPrompt === true;
+  const codexIssue =
+    !codexInspection.commandReady || !codexInspection.relaydeskCompatible
+      ? codexInspection.issue
+      : !codexAuthReady
+        ? "Codex 仍缺少本机授权。请先运行 codex login，或配置 OPENAI_API_KEY。"
+        : codexInspection.supportsStdinDashPrompt === false
+          ? "当前 Codex CLI 可处理短 prompt；若需长输入，请升级到支持 stdin prompt 的版本。"
+          : null;
 
   return {
     nodeVersion: process.version,
@@ -52,9 +71,9 @@ export function buildDiagnostics(
     configPath: CONFIG_PATH,
     appHome: APP_HOME,
     logDir,
-    codexReady:
-      commandReady(normalized.tools?.codex?.cliPath ?? "codex") &&
-      findCodexAuth(),
+    codexReady,
+    codexLongPromptReady,
+    codexIssue,
     codebuddyReady: commandReady(
       normalized.tools?.codebuddy?.cliPath ?? "codebuddy",
     ),

@@ -149,6 +149,8 @@ export interface BootstrapPayload {
     appHome: string;
     logDir: string;
     codexReady: boolean;
+    codexLongPromptReady?: boolean;
+    codexIssue?: string | null;
     codebuddyReady: boolean;
     claudeReady: boolean;
   };
